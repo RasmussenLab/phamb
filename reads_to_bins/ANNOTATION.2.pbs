@@ -1,0 +1,189 @@
+#!/bin/bash
+
+# This is ANNOTATION.pbs
+
+# Example usage:
+
+### Usage 
+# myqsub -d `pwd` -F "${ARGS}" -t 1-X -e log/ANNOTATION -o log/ANNOTATION phamb_pipe/ANNOTATION.2.pbs
+#PBS -l nodes=1:ppn=8:thinnode
+#PBS -l walltime=4:00:00:00
+#PBS -l mem=120gb
+
+
+### exit if any errors or unset variables are encountered / Strict Mode
+set -x
+mkdir -p log/ANNOTATION
+if [ "$#" -lt 4 ]; then
+    echo "Annotation: Expected at least 4 arguments; received $#: $@"
+    exit 1
+fi
+
+### LOAD MODULES NEEDED 
+module load tools
+module load perl/5.24.0
+module load java/1.8.0-openjdk
+module load ncbi-blast/2.8.1+   # Extra Annotation for RM and MLST
+module load prodigal/2.6.3
+module load samtools/1.9
+
+
+### GLOBAL VARIABLES FROM JOB SUBMISSION
+readonly INPUT_TABLE="$1"
+readonly ANNOTATION_TMPDIR="$2"
+readonly ANNOTATION_PPN="$3"
+readonly ANNOTATION_CONTIG_SUFFIX="$4"
+shift
+shift
+shift
+shift
+shift
+shift
+
+### read from a single line corresponding to the job array ID 
+### Get information about Sample name but also what Extra Annotation features to run
+read SAMPLE FQ1 FQ2 < <(cat $INPUT_TABLE | sed "${PBS_ARRAYID}q;d")
+
+### Hardcoded variables 
+readonly LOGDIR=log
+readonly JOBID_SIMPLE=`echo ${PBS_JOBID} | sed -r 's/(\[|\.).*$//'`   ## extract the numeric part only
+readonly TEMPDIR=${ANNOTATION_TMPDIR}/annotation_${SAMPLE}
+readonly OUTPUTDIR=04_annotation/${SAMPLE}
+
+mkdir -p "${OUTPUTDIR}" "${LOGDIR}" "${TEMPDIR}"
+
+### Define Input Contig/Assembly file 
+CONTIGFILE=02_assembly/${SAMPLE}/${SAMPLE}.flt.${ANNOTATION_CONTIG_SUFFIX}
+
+### If No Contig file has produced for this JOBID. 
+if [ ! -f "${CONTIGFILE}" ]; then 
+	echo "${SAMPLE}.${ANNOTATION_CONTIG_SUFFIX} doesn't exist for ${SAMPLE}, skipping for sample. Revisit Step 2" ; exit 1; 
+fi
+
+
+echo `date` Starting
+echo "SAMPLE=${SAMPLE}"
+echo "CONTIGFILE=${CONTIGFILE}"
+echo "THREADS=${ANNOTATION_PPN}"
+
+
+### Prodigal 
+if [ ! -f "$OUTPUTDIR/${SAMPLE}.predicted_proteins.faa" ];then 
+
+prodigal -i $CONTIGFILE \
+-d $OUTPUTDIR/${SAMPLE}.predicted_proteins.fna \
+-a $OUTPUTDIR/${SAMPLE}.predicted_proteins.faa \
+-o $OUTPUTDIR/${SAMPLE}.predicted_proteins.gff \
+-p meta \
+-g 11 \
+-q \
+-f gff
+
+fi
+
+
+### Blast to VIRAL Refseq 2019 taxonomic annotation - like what they do in Roux et al. 2016
+if [ ! -f "$OUTPUTDIR/${SAMPLE}.VIRALREFSEQ.m6" ]; then
+	BLAST_PARAMS="-task megablast -evalue 0.001 -qcov_hsp_perc 30 -perc_identity 75 -max_target_seqs 50 -max_hsps 1"
+	BLAST_DATABASE=/home/projects/cpr_10006/projects/phamb/databases/TaxonomyDB/RefSeq_2019-09-20/blastdb/refseq_Vir
+
+	echo `date` Starting Blasting to Viral Refeq
+	blastn $BLAST_PARAMS \
+	-db $BLAST_DATABASE \
+	-query $OUTPUTDIR/${SAMPLE}.predicted_proteins.fna \
+	-out $OUTPUTDIR/${SAMPLE}.VIRALREFSEQ.m6 \
+	-outfmt '6 std qlen slen' -num_threads ${ANNOTATION_PPN}
+
+	echo `date` Done Blasting
+fi
+
+
+
+### Blast to Established IMGVR genome database 
+if [ ! -f "$OUTPUTDIR/${SAMPLE}.IMGVR.m6" ]; then
+	BLAST_PARAMS="-task megablast -evalue 0.001 -qcov_hsp_perc 30 -perc_identity 75 -max_target_seqs 50 -max_hsps 1"
+	BLAST_DATABASE=/home/projects/cpr_10006/projects/phamb/databases/IMGVR/current/IMGVR_all_nucleotides.fna 
+
+	echo `date` Starting Blasting IMGVR
+	blastn $BLAST_PARAMS \
+	-db $BLAST_DATABASE \
+	-query $CONTIGFILE \
+	-out $OUTPUTDIR/${SAMPLE}.IMGVR.m6 \
+	-outfmt '6 std qlen slen' -num_threads ${ANNOTATION_PPN}
+
+	echo `date` Done Blasting
+fi
+
+### Blast to the Plasmid Database 
+if [ ! -f "$OUTPUTDIR/${SAMPLE}.PLSDB.m6" ]; then
+	BLAST_PARAMS="-task megablast -evalue 0.001 -qcov_hsp_perc 30 -perc_identity 75 -max_target_seqs 50 -max_hsps 1"
+	BLAST_DATABASE=/home/projects/cpr_10006/projects/phamb/tools/plsdb/data/master/2020_01_14.fna
+
+	echo `date` Starting Blasting IMGVR
+	blastn $BLAST_PARAMS \
+	-db $BLAST_DATABASE \
+	-query $CONTIGFILE \
+	-out $OUTPUTDIR/${SAMPLE}.PLSDB.m6 \
+	-outfmt '6 std qlen slen' -num_threads ${ANNOTATION_PPN}
+
+	echo `date` Done Blasting
+fi
+
+
+### IMG/VR protein families Annotation
+#   if [ ! -f "${OUTPUTDIR}/${SAMPLE}.hmmIMGVR.tbl" ]; then
+#   echo `date` Starting HMM Profiling IMGVR
+#   module load hmmer/3.2.1
+#   hmmsearch --cpu ${ANNOTATION_PPN} \
+#   	-E 1.0e-05 \
+#   	--tblout ${OUTPUTDIR}/${SAMPLE}.hmmIMGVR.tbl \
+#   	/home/projects/cpr_10006/projects/phamb/databases/IMGVR/final_list.hmms\
+#   	$OUTPUTDIR/${SAMPLE}.predicted_proteins.faa
+#   module unload hmmer/3.2.1
+#   echo `date` Done HMM Profiling IMGVR
+#   fi 
+
+### miComplete 105 bacterial hallmark genes
+if [ ! -f "${OUTPUTDIR}/${SAMPLE}.hmmMiComplete105.tbl" ]; then
+echo `date` Starting HMM Profiling IMGVR
+module load hmmer/3.2.1
+hmmsearch --cpu ${ANNOTATION_PPN} \
+	-E 1.0e-05 \
+	--tblout ${OUTPUTDIR}/${SAMPLE}.hmmMiComplete105.tbl \
+	/home/projects/cpr_10006/projects/phamb/databases/miComplete/Bact105.hmm \
+	$OUTPUTDIR/${SAMPLE}.predicted_proteins.faa
+module unload hmmer/3.2.1
+echo `date` Done HMM Profiling IMGVR
+fi 
+
+
+### VOG annotation (The updated pVOG)
+if [ ! -f "${OUTPUTDIR}/${SAMPLE}.hmmVOG.tbl" ]; then
+module load hmmer/3.2.1
+VOGHMM=/home/projects/cpr_10006/projects/phamb/databases/VOG/vog_hmms/AllVOG.hmm
+hmmsearch --cpu ${ANNOTATION_PPN} \
+	-E 1.0e-05 \
+	--tblout ${OUTPUTDIR}/${SAMPLE}.hmmVOG.tbl \
+	$VOGHMM\
+	$OUTPUTDIR/${SAMPLE}.predicted_proteins.faa
+module unload hmmer/3.2.1
+fi 
+
+
+### DVF (Deep Vir Finder) prediction
+### The output file has a pretty generic name  basename+_gt${length}bp_dvfpred.txt
+if [ ! -f "${OUTPUTDIR}/${SAMPLE}_dvf/contigs.flt.fa_gt2000bp_dvfpred.txt" ]; then 
+echo `date` Starting DVF
+eval "$(conda shell.bash hook)"
+conda activate deepvirfinder
+python /home/projects/cpr_10006/projects/phamb/tools/DeepVirFinder/dvf.py -i ${CONTIGFILE} \
+	-o ${OUTPUTDIR}/${SAMPLE}_dvf \
+	-l 2000 \
+	-c ${ANNOTATION_PPN}
+
+conda deactivate 
+echo `date` Done DVF
+fi
+
+echo `date` Finished!
+

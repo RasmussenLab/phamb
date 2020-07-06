@@ -1,0 +1,89 @@
+#!/bin/bash
+#
+# Copy it to your working directory, then edit the copy to suit your needs.
+# Version 2020-02-1
+
+
+#############################################################################
+#### Editing the following parameters is necessary 
+
+### Batch related arguments 
+NJOBS=100 			# The number of jobs submitted pr. batch 
+RUN_NSAMPLES=3			# How many samples to run? Similar to the number of lines in the sample_table.txt
+RUN_FROM_NSAMPLES=1     # Which sample to run from in the sample_table  default 1 
+
+### The name of the file containing sample names and fastq paths.
+SAMPLETABLE=sample_table.txt
+
+#### General #############
+
+# Name of the log file - located in Working Directory
+LOGFILE=pipeline.log
+
+
+
+# Which steps to do ("true" = do it, anything else = don't do it)
+DO_QC=false                  # DEFAULT
+DO_ASSEMBLY=false
+DO_MAP=false
+DO_ANNOTATION=false
+DO_BINNING=false
+
+
+
+### NB: If you dont have fastq files and only assemblies - set the variable below to true 
+## This exception to the original pipeline skips QC and ASSEMBLY and looks for premade assemblies in the 02_assembly directory
+## It's extremely essential to use the prepared `src/prepare_contig_files` that dictates the proper file structure, else the pipeline will FAIL.
+ONLY_ASSEMBLIES=false
+
+###############################################################################
+#### Editing the following parameters is probably not necessary for the pipeline to complete
+## PPN = Number of Processors / Threading
+
+######### STEP 1 = parameters affecting DO_QC #############
+
+QC_CLEAN=true 					# Remove temporary files if everything finished OK
+QC_PPN=10
+QC_METHOD='kneaddata'
+QC_PREQC=false                   # If the fastq files are QC'ed already, skip QC but rename and restructure files for downstream steps
+
+### Kneaddata databases can be downloaded with  - remember to load anaconda2 
+# kneaddata_database --download human_genome bowtie2 $DIR
+QC_HOST_DATABASE=/home/projects/cpr_10006/data/Databases/Homo_sapiens.GRCh38_Bowtie2
+
+# Trimmomatic parameters
+QC_TRIMMOMATIC_PARAMS="ILLUMINACLIP:/services/tools/trimmomatic/0.36/adapters/NexteraPE-PE.fa:2:30:10 LEADING:20  TRAILING:20  SLIDINGWINDOW:4:20  MINLEN:100"
+
+# Make sure you are using the appropriate adapter file for your data, just exchange the name in the variable ^ 
+# Here are the available adapter files:
+#  NexteraPE-PE.fa  TruSeq2-PE.fa  TruSeq2-SE.fa  TruSeq3-PE-2.fa
+#  TruSeq3-PE.fa  TruSeq3-SE.f
+
+######### STEP 2 = parameters affecting DO_ASSEMBLY #############
+ASSEMBLY_PPN=24
+ASSEMBLY_METHOD='spades'
+ASSEMBLY_GSIZE="auto"					# Size of Genome in Millions of bp - I guess its ideal to set this one for each Genome project
+ASSEMBLY_ISOLATE=false   				# Assembly Method can be i.e. Spades, SKESA, Megahit    
+ASSEMBLY_TMPDIR=tmp					#
+ASSEMBLY_TRIM=false					# Currently not possible and probably not necessary. 
+ASSEMBLY_MINIMUM_CONTIG_LENGTH=1000
+
+######## STEP 3 - parameters affecting DO_MAP ###########
+MAP_PPN=8
+MAP_BAI=true
+MAP_METHOD="minimap2"             # If Minimap2 is used - remember to index the reference fasta file. COMMAND : minimap2 -d ref.fasta.mmi ref.fasta 
+MAP_REFERENCE=''                  # If some samples are mapped to the same one - i.e. not mapping reads to same Assembly
+MAP_TO_SAME_REF=true
+
+######### STEP 4 = parameters affecting DO_ANNOTATION #############
+ANNOTATION_PPN=24
+ANNOTATION_EVAL=0.000001		    # Blast related E-value for legit taxonomic annotations
+ANNOTATION_TMPDIR=tmp
+ANNOTATION_PROKKA=false
+ANNOTATION_CONTIG_SUFFIX=fa
+
+
+######### STEP 5 = parameters affecting DO_BINNING #############
+BINNING_GPU=false
+BINNING_VAMB_RUN_ID=''
+BINNING_JGI=false

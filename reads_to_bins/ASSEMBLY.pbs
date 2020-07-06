@@ -1,0 +1,125 @@
+#!/bin/bash
+
+# This is ASSEMBLY.pbs
+# Joachim 2018-12-12
+
+# Example usage:
+
+# myqsub -d `pwd` -F "${ARGS}" -t 1-X -e log/ASSEMBLY -o log/ASSEMBLY phamb_pipe/ASSEMBLY.pbs
+#PBS -l nodes=1:ppn=24:thinnode
+#PBS -l walltime=2:00:00:00
+#PBS -l mem=60gb
+
+### exit if any errors or unset variables are encountered
+#set -euo pipefail
+
+if [ "$#" -lt 8 ]; then
+    echo "ASSEMBLY.pbs: Expected at least 8 arguments; received $#: $@"
+    exit 1
+fi
+
+### LOAD MODULES NEEDED
+module load tools 
+module load jre/1.8.0-openjdk
+module load anaconda2/4.4.0 
+module load spades/3.9.0
+module load pigz/2.3.3 
+
+### echo commands to the error stream (may help debugging)
+set -x 
+
+### GLOBAL VARIABLES FROM JOB SUBMISSION
+readonly INPUT_TABLE="$1"
+readonly ASSEMBLY_GSIZE="$2"
+readonly ASSEMBLY_METHOD="$3"
+readonly ASSEMBLY_TMPDIR="$4"
+readonly ASSEMBLY_PPN="$5"
+readonly ASSEMBLY_MAXMEM="$6"
+readonly ASSEMBLY_ISOLATE="$7"
+readonly ASSEMBLY_MINIMUM_CONTIG_LENGTH="$8"
+shift
+shift
+shift
+shift
+shift
+shift
+### read from a single line corresponding to the job array ID
+read SAMPLE FQ1 FQ2 PLACEHOLDER < <(cat $INPUT_TABLE | sed "${PBS_ARRAYID}q;d")
+readonly SAMPLE
+
+### Hardcoded variables  
+readonly LOGDIR=log
+readonly JOBID_SIMPLE=`echo ${PBS_JOBID} | sed -r 's/(\[|\.).*$//'`   ## extract the numeric part only
+readonly TEMPDIR=${ASSEMBLY_TMPDIR}/assembly_${SAMPLE}
+readonly OUTPUTDIR=02_assembly/${SAMPLE}
+
+mkdir -p "${OUTPUTDIR}" "${LOGDIR}" "${TEMPDIR}"
+
+### Determine if Paired or Not - PE vs SE 
+if [ -z "${FQ2}" ]; then
+    readonly PAIRED=
+else
+    readonly PAIRED=1
+    [ -f "${FQ2}" ] || { echo "Rev read file ${FQ2} not found!" ; exit 1; } 
+fi
+
+### Define path for QCed fastq files
+if [ ${PAIRED} ]; then
+	FQ1=01_qced/${SAMPLE}_trimmed_paired_1.fastq.gz 
+	FQ2=01_qced/${SAMPLE}_trimmed_paired_2.fastq.gz
+	echo `date` Starting assembly PE
+	echo "SAMPLE=${SAMPLE}"
+	echo "FQ1=${FQ1}"
+	echo "FQ2=${FQ2}"
+	echo "THREADS=${ASSEMBLY_PPN}"
+else
+	FQ=01_qced/$QCDIR/${SAMPLE}_trimmed.fastq.gz
+	echo `date` Starting assembly SE
+	echo "FQ=${FQ}"
+	echo "SAMPLE=${SAMPLE}"
+	echo "THREADS=${ASSEMBLY_PPN}"
+fi
+
+
+### If Assembly has finished already - don't run it 
+if [ -f "${OUTPUTDIR}/contigs.fasta" ]; then
+	echo "contigs.fasta already exists for ${SAMPLE}, skipping ." ; exit 0;
+fi
+
+
+### Run ASSEMBLY with i.e. meta spades 
+if [ ${ASSEMBLY_ISOLATE} == "false" ]; then
+
+echo `date` "Starting Assembly with metaspades"
+
+
+
+	if [ ${PAIRED} ];then 
+		spades.py --meta \
+			-t ${ASSEMBLY_PPN}\
+			--memory ${ASSEMBLY_MAXMEM}\
+			--tmp-dir ${TEMPDIR}\
+			-k 21,33,55,77,99\
+			-1 ${FQ1}\
+			-2 ${FQ2}\
+			-o ${OUTPUTDIR}
+
+
+	else
+		spades.py --meta \
+			-t ${ASSEMBLY_PPN}\
+			--memory ${ASSEMBLY_MAXMEM}\
+			--tmp-dir ${TEMPDIR}\
+			-k 21,33,55,77,99\
+			-s ${FQ}\
+			-o ${OUTPUTDIR}
+	fi
+	
+	### Do Post size filtering and attach Sample name to each contig
+	python phamb_pipe/fastx_filterfasta.py --i ${OUTPUTDIR}/contigs.fasta --o ${OUTPUTDIR}/contigs.flt.fa --min ${ASSEMBLY_MINIMUM_CONTIG_LENGTH} --id ${SAMPLE} 
+
+fi
+
+### Clean up
+rm -r ${TEMPDIR} 
+echo `date` Finished!

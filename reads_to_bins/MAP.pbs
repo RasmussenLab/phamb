@@ -1,0 +1,220 @@
+#!/bin/bash
+
+# This is MAP.pbs
+# 
+
+# Example usage:
+# myqsub -d `pwd` -t 1-$NSAMPLES -F "${ARGS}" MAP.pbs
+
+
+### exit if any errors or unset variables are encountered
+#set -euo pipefail
+
+if [ "$#" -lt 7 ]; then
+    echo "MAP.pbs: Expected at least 7 arguments; received $#: $@"
+    exit 1
+fi
+ 
+### LOAD MODULES NEEDED
+module load tools 
+module load jre/1.8.0-openjdk 
+module load perl/5.24.0 java/1.8.0-openjdk fastqc/0.11.5
+module load pigz/2.3.4
+module load bwa/0.7.16a
+module load minimap2/2.6
+module load samtools/1.9
+
+### echo commands to the error stream (may help debugging)
+set -x 
+
+### GLOBAL VARIABLES
+readonly INPUT_TABLE="$1"
+readonly THREADS="$2"
+readonly MAXMEM="$3"
+readonly DO_BAI="$4"
+readonly MAP_METHOD="$5"
+readonly MAP_REFERENCE="$6" 
+readonly MAP_TO_SAME_REF="$7"
+shift
+shift
+shift
+shift
+shift
+shift
+readonly QCDIR=01_qced
+OUTPUTDIR=03_mapping
+readonly LOGDIR=log
+readonly JOBID_SIMPLE=`echo ${PBS_JOBID} | sed -r 's/(\[|\.).*$//'`   ## extract the numeric part only
+readonly TEMPDIR=tmp/mapping
+
+mkdir -p "${QCDIR}" "${OUTPUTDIR}" "${LOGDIR}"  "${LOGDIR}/bwa" "${TEMPDIR}"
+
+## read from a single line corresponding to the job array ID
+read SAMPLE FQ1 FQ2 PLACEHOLDER < <(cat $INPUT_TABLE | sed "${PBS_ARRAYID}q;d")
+
+
+
+### Determine if Paired or Not - PE vs SE 
+if [ -z "${FQ2}" ]; then
+    readonly PAIRED=
+else
+    readonly PAIRED=1
+    [ -f "${FQ2}" ] || { echo "Rev read file ${FQ2} not found!" ; exit 1; } 
+fi
+
+### Define assembly
+if [ ${MAP_TO_SAME_REF} == "true" ]; then 
+    ASSEMBLY=${MAP_REFERENCE}
+    REFNAME=`echo $MAP_REFERENCE | xargs basename | sed -r 's/\.f\w+//'`
+    OUTPUTDIR=03_mapping/${REFNAME}
+    mkdir -p "${OUTPUTDIR}"
+else
+    ASSEMBLY=02_assembly/${SAMPLE}/contigs.flt.fa
+fi
+
+
+### Define path for QCed fastq files
+if [ ${PAIRED} ]; then
+    echo `date` Starting Mapping PE
+    FQ1=01_qced/${SAMPLE}_trimmed_paired_1.fastq.gz 
+	FQ2=01_qced/${SAMPLE}_trimmed_paired_2.fastq.gz
+    echo "SAMPLE=${SAMPLE}"
+    echo "FQ1=${FQ1}"
+    echo "FQ2=${FQ2}"
+    echo "THREADS=${ASSEMBLY_PPN}"
+    echo "ASSEMBLY=${ASSEMBLY}"
+    echo "THREADS=${THREADS}"
+    echo "DO_BAI=${DO_BAI}"
+else
+    echo `date` Starting Mapping SE
+    FQ=01_qced/$QCDIR/${SAMPLE}_trimmed.fastq.gz
+    echo "FQ=${FQ}"
+    echo "SAMPLE=${SAMPLE}"
+    echo "THREADS=${ASSEMBLY_PPN}"
+    echo "ASSEMBLY=${ASSEMBLY}"
+    echo "THREADS=${THREADS}"
+    echo "DO_BAI=${DO_BAI}"
+fi
+
+### Only really relevant if no Ref.fasta is used.
+if [ ! -f "${ASSEMBLY}" ]; then
+        echo "contigs.fasta dont exists for ${SAMPLE}, skipping ." ; exit 1;
+fi
+
+if [ -f "${OUTPUTDIR}/${SAMPLE}.sorted.bam" ]; then
+        echo "You already mapped ${SAMPLE}, remove it to re-map " ; exit 0;
+fi
+
+
+echo `date` Starting mapping
+
+### Map with classic BWA 
+
+if [ ${MAP_METHOD} == 'bwa' ]; then 
+
+if [ ${PAIRED} ]; then
+    bwa mem -t ${THREADS} -r 1 -M \
+        -R "@RG\tID:id${SAMPLE}\tSM:${SAMPLE}\tPL:ILLUMINA\tLB:lib${SAMPLE}" \
+        ${ASSEMBLY} \
+        ${FQ1} ${FQ2}|\
+    samtools view -b --threads 12 - |\
+    samtools sort --threads 12 -T ${TEMPDIR}/tmp.${SAMPLE} -o ${OUTPUTDIR}/${SAMPLE}.sorted.bam -O BAM -
+
+
+    if [ "${DO_BAI}" = "true" ]; then
+    echo `date` Finished marking duplicates, starting flagstat and index.
+    samtools flagstat -@ $(($THREADS/2))  \
+        ${OUTPUTDIR}/${SAMPLE}.sorted.bam \
+        > ${OUTPUTDIR}/${SAMPLE}.flagstat.txt \
+    & samtools index  -@ $(($THREADS/2)) \
+        ${OUTPUTDIR}/${SAMPLE}.sorted.bam
+    wait
+    fi 
+else 
+    bwa mem -t ${THREADS} -r 1 -M \
+        -R "@RG\tID:id${SAMPLE}\tSM:${SAMPLE}\tPL:ILLUMINA\tLB:lib${SAMPLE}" \
+        ${ASSEMBLY} \
+        ${FQ}|\
+    samtools view -b --threads 12 - |\
+    samtools sort --threads 12 -T ${TEMPDIR}/tmp.${SAMPLE} -o ${OUTPUTDIR}/${SAMPLE}.sorted.bam -O BAM -
+
+
+    if [ "${DO_BAI}" = "true" ]; then
+    echo `date` Finished marking duplicates, starting flagstat and index.
+    samtools flagstat -@ $(($THREADS/2))  \
+        ${OUTPUTDIR}/${SAMPLE}.sorted.bam \
+        > ${OUTPUTDIR}/${SAMPLE}.flagstat.txt \
+    & samtools index  -@ $(($THREADS/2)) \
+        ${OUTPUTDIR}/${SAMPLE}.sorted.bam
+    wait
+    fi
+
+fi
+
+fi
+
+
+
+if [ ${MAP_METHOD} == 'minimap2' ]; then 
+
+    # Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...] 
+    # Remember to index the reference fasta file 
+    # minimap2 -d ref.fasta.mmi ref.fasta 
+    if [ ${PAIRED} ]; then
+
+
+
+
+        if [ ${MAP_TO_SAME_REF} == "true" ]; then 
+             ### Check if minimap2 reference created
+            if [ ! -f "${ASSEMBLY}.mmi" ]; then 
+                echo "Minimap2 reference not found!"
+                echo "Check path: ${ASSEMBLY}.mmi" 
+                exit 1
+            fi
+            minimap2 -t ${THREADS} -N 50 -ax sr ${ASSEMBLY}.mmi ${FQ1} ${FQ2} | samtools view -F 3584 -b -T ${ASSEMBLY} > ${OUTPUTDIR}/${SAMPLE}.bam
+            samtools sort -n --threads ${THREADS} -o ${OUTPUTDIR}/${SAMPLE}.sorted.bam -O BAM ${OUTPUTDIR}/${SAMPLE}.bam
+        else
+            minimap2 -t ${THREADS} -N 50 -ax sr ${ASSEMBLY} ${FQ1} ${FQ2} | samtools view -F 3584 -b -T ${ASSEMBLY} > ${OUTPUTDIR}/${SAMPLE}.assembly.bam
+            samtools sort -n --threads ${THREADS} -o ${OUTPUTDIR}/${SAMPLE}.sorted.assembly.bam -O BAM ${OUTPUTDIR}/${SAMPLE}.assembly.bam
+        fi
+
+        ### Calculate JGI sum 
+        if [ "${DO_BAI}" = "true" ]; then
+            echo `date` Finished marking duplicates, starting flagstat and index.
+            samtools flagstat -@ $(($THREADS/2))  \
+                ${OUTPUTDIR}/${SAMPLE}.sorted.bam \
+                > ${OUTPUTDIR}/${SAMPLE}.flagstat.txt \
+            & samtools index  -@ $(($THREADS/2)) \
+                ${OUTPUTDIR}/${SAMPLE}.sorted.bam
+            wait
+        fi
+
+    else
+        minimap2 -t ${THREADS}\
+            -N 50\
+            -ax sr ${ASSEMBLY}\
+            ${FQ} | samtools view -F 3584 -b -T ${ASSEMBLY} > ${OUTPUTDIR}/${SAMPLE}.bam
+        samtools sort -n --threads ${THREADS} -o ${OUTPUTDIR}/${SAMPLE}.sorted.bam -O BAM ${OUTPUTDIR}/${SAMPLE}.bam
+
+        if [ "${DO_BAI}" = "true" ]; then
+            echo `date` Finished marking duplicates, starting flagstat and index.
+            samtools flagstat -@ $(($THREADS/2))  \
+                ${OUTPUTDIR}/${SAMPLE}.sorted.bam \
+                > ${OUTPUTDIR}/${SAMPLE}.flagstat.txt \
+            & samtools index  -@ $(($THREADS/2)) \
+                ${OUTPUTDIR}/${SAMPLE}.sorted.bam
+            wait
+        fi
+
+    fi
+
+fi
+
+### Calculate JGI sum 
+module load perl/5.24.0 metabat/2.10.2
+jgi_summarize_bam_contig_depths --noIntraDepthVariance --outputDepth ${OUTPUTDIR}/${SAMPLE}.jgi.depth.txt ${OUTPUTDIR}/${SAMPLE}.sorted.bam
+jgi_summarize_bam_contig_depths --noIntraDepthVariance --outputDepth ${OUTPUTDIR}/${SAMPLE}.jgi.depth.txt ${OUTPUTDIR}/${SAMPLE}.sorted.assembly.bam
+
+
+echo `date` Finished!

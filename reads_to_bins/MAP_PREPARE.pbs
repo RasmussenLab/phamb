@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# This is MAP_PREPARE
+# Joachim 2020-02-01
+
+#PBS -l nodes=1:ppn=1:thinnode
+#PBS -l walltime=1:00:00:00
+#PBS -l mem=120gb
+
+
+# Example usage:
+#  myqsub -d `pwd` -F "${ARGS}" -e log/MAP_PREPARE -o log/MAP_PREPARE src/MAP_PREPARE.pbs
+
+module load perl/5.24.0 
+module load pigz/2.3.4
+module load minimap2/2.6
+module load samtools/1.9
+
+mkdir -p combined_assemblies log/MAP_PREPARE
+
+readonly FASTANAME="$1"
+
+### Concatenate assemblies
+if [ ! -f "combined_assemblies/${FASTANAME}.fna" ]; then 
+cat 02_assembly/*/*flt.fna > combined_assemblies/${FASTANAME}.fna
+fi
+
+### index
+samtools faidx -o combined_assemblies/${FASTANAME}.fna.fai combined_assemblies/${FASTANAME}.fna
+
+### Minimap2 index 
+minimap2 -d combined_assemblies/${FASTANAME}.fna.mmi combined_assemblies/${FASTANAME}.fna
