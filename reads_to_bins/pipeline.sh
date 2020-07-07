@@ -25,7 +25,7 @@ source ./pipeline.config.file
 exec &> >(tee -a "${LOGFILE}")
 
 ### Setting source working directory
-readonly SRC_DIR=phamb_pipe
+readonly SRC_DIR=reads_to_bins
 
 
 echo "This is [NAME]  version ${VERSION}"
@@ -66,12 +66,12 @@ else
 
 	### Run QC / Trimming of FastQ samples
 
-	[[ $QC_PPN -gt 28 ]] || [[ $QC_PPN -lt 1 ]] && { echo "ERROR: 'QC_PPN' must be between 1 and 28." ; exit 1; }
+	[[ $QC_PPN -gt 40 ]] || [[ $QC_PPN -lt 1 ]] && { echo "ERROR: 'QC_PPN' must be between 1 and 40." ; exit 1; }
 
 
 	## Submit read mapping jobs
 	if [ "${DO_QC}" = "true" ]; then
-	    readonly MAXMEM=$((120*$QC_PPN/28))
+	    readonly MAXMEM=$((130*$QC_PPN/40))
 	    readonly QC_RESOURCES="nodes=1:ppn=${QC_PPN}:thinnode,walltime=24:00:00,mem=${MAXMEM}gb"
 	    readonly QC_LOGS="-o log/pbs/QC.pbs.o -e log/pbs/QC.pbs.e"
 	    readonly QC_ARGS="${SAMPLETABLE} ${QC_HOST_DATABASE} ${QC_PPN} ${QC_CLEAN} ${QC_METHOD} ${QC_PREQC} ${QC_TRIMMOMATIC_PARAMS}"
@@ -87,11 +87,11 @@ else
 	### Running Assemblies 
 
 	### Check NNodes input.
-	[[ $ASSEMBLY_PPN -gt 28 ]] || [[ $ASSEMBLY_PPN -lt 1 ]] && { echo "ERROR: 'ASSEMBLY_PPN' must be between 1 and 28." ; exit 1; }
+	[[ $ASSEMBLY_PPN -gt 40 ]] || [[ $ASSEMBLY_PPN -lt 1 ]] && { echo "ERROR: 'ASSEMBLY_PPN' must be between 1 and 40." ; exit 1; }
 
 	if [ "${DO_ASSEMBLY}" = "true" ]; then
 
-	    readonly ASSEMBLY_MAXMEM=$((120*$ASSEMBLY_PPN/28))
+	    readonly ASSEMBLY_MAXMEM=$((130*$ASSEMBLY_PPN/40))
 	    readonly ASSEMBLY_RESOURCES="nodes=1:ppn=${ASSEMBLY_PPN}:thinnode,walltime=24:00:00,mem=${ASSEMBLY_MAXMEM}gb"
 	    readonly ASSEMBLY_LOGS="-o log/pbs/ASSEMBLY.pbs.o -e log/pbs/ASSEMBLY.pbs.e"
 	    readonly ASSEMBLY_ARGS="${SAMPLETABLE} ${ASSEMBLY_GSIZE} ${ASSEMBLY_METHOD} ${ASSEMBLY_TMPDIR} ${ASSEMBLY_PPN} ${ASSEMBLY_MAXMEM} ${ASSEMBLY_ISOLATE} ${ASSEMBLY_MINIMUM_CONTIG_LENGTH}"
@@ -108,11 +108,11 @@ fi
 
 ### Running Mapping 
 
-[[ $MAP_PPN -gt 28 ]] || [[ $MAP_PPN -lt 1 ]] && { echo "ERROR: 'MAP_PPN' must be between 1 and 28." ; exit 1; }
+[[ $MAP_PPN -gt 40 ]] || [[ $MAP_PPN -lt 1 ]] && { echo "ERROR: 'MAP_PPN' must be between 1 and 40." ; exit 1; }
 
 if [ "${DO_MAP}" = "true" ]; then
 
-    readonly MAP_MAXMEM=$((120*$MAP_PPN/28))
+    readonly MAP_MAXMEM=$((130*$MAP_PPN/40))
     readonly MAP_RESOURCES="nodes=1:ppn=${MAP_PPN}:thinnode,walltime=24:00:00,mem=${MAP_MAXMEM}gb"
     readonly MAP_LOGS="-o log/pbs/MAP.pbs.o -e log/pbs/MAP.pbs.e"
     readonly MAP_ARGS="${SAMPLETABLE} ${MAP_PPN} ${MAP_MAXMEM} ${MAP_BAI} ${MAP_METHOD} ${MAP_REFERENCE} ${MAP_TO_SAME_REF}"
@@ -131,11 +131,11 @@ fi
 ### Running Annotation
 
 ### Check NNodes input.
-[[ $ANNOTATION_PPN -gt 28 ]] || [[ $ANNOTATION_PPN -lt 1 ]] && { echo "ERROR: 'ANNOTATION_PPN' must be between 1 and 28." ; exit 1; }
+[[ $ANNOTATION_PPN -gt 40 ]] || [[ $ANNOTATION_PPN -lt 1 ]] && { echo "ERROR: 'ANNOTATION_PPN' must be between 1 and 40." ; exit 1; }
 
 if [ "${DO_ANNOTATION}" = "true" ]; then
 
-    readonly ANNOTATION_MAXMEM=$((120*$ANNOTATION_PPN/28))
+    readonly ANNOTATION_MAXMEM=$((130*$ANNOTATION_PPN/40))
     readonly ANNOTATION_RESOURCES="nodes=1:ppn=${ANNOTATION_PPN}:thinnode,walltime=80:00:00,mem=${ANNOTATION_MAXMEM}gb"
     readonly ANNOTATION_LOGS="-o log/pbs/ANNOTATION.pbs.o -e log/pbs/ANNOTATION.pbs.e"
     readonly ANNOTATION_ARGS="${SAMPLETABLE} ${ANNOTATION_TMPDIR} ${ANNOTATION_PPN} ${ANNOTATION_CONTIG_SUFFIX}"
@@ -148,21 +148,6 @@ else
     ANNOTATIONDEPENDENCY=""
 fi
 
-### Running Binning 
-
-if [ "${DO_BINNING}" = "true" ]; then
-
-    readonly BINNING_MAXMEM=$((70*$BINNING_PPN/28))
-    readonly BINNING_RESOURCES="nodes=1:ppn=${BINNING_PPN}:thinnode,walltime=80:00:00,mem=${BINNING_MAXMEM}gb"
-    readonly BINNING_LOGS="-o log/pbs/BINNING.pbs.o -e log/pbs/BINNING.pbs.e"
-    readonly BINNING_ARGS="${SAMPLETABLE} ${BINNING_GPU} ${BINNING_VAMB_RUN_ID} ${BINNING_JGI} ${MAP_REFERENCE}"
-    BINNINGJOBID=$(myqsub -d `pwd` ${BINNING_LOGS} -l ${BINNING_RESOURCES} -F "${BINNING_ARGS}" ${SRC_DIR}/VAMB_BINNING.pbs  | cut -d . -f 1)
-
-    echo "BINNING job submitted: ${BINNINGJOBID}"
-else
-    echo "Skipping BINNING step"
-    BINNINGJOBID=""
-fi
 
 
 

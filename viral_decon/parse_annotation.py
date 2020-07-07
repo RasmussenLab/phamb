@@ -626,14 +626,15 @@ def RF_decontaminate(args):
     table_file_annotated = os.path.join(args.outdir,'vambbins_aggregated_annotation.Viral.txt')
     _vambbins_filtered.sort_values(by='binsize',ascending=False).to_csv(table_file_annotated,sep='\t',index=False)
 
-    ### Just in case, read clusters from VAMB clusters file.
-    cls, binsannos = read_in_clusters(args)
+
 
 
     if args.fasta is None:
         print('You need to provide the -f argument in order to write fasta files of Viral Bins and Contigs!')
         sys.exit(0)
+
     ### Write out contigs and Bins concatenated
+    cls, binsannos = read_in_clusters(args)
     write_concate_sequences(args,cls,_vambbins_filtered)
     print('Done Writing Viral Sequences!')
 

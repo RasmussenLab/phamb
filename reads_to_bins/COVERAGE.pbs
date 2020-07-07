@@ -4,7 +4,7 @@
 # 
 #PBS -l nodes=1:ppn=1:thinnode
 #PBS -l walltime=2:00:00:00
-#PBS -l mem=120gb
+#PBS -l mem=8gb
 
 # Example usage:
 # myqsub -d `pwd` -t 1-$NSAMPLES -F "${ARGS}" MAP.pbs

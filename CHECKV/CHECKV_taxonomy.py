@@ -384,37 +384,6 @@ def parse_checkv_write_overview(args):
     checkv_parsers.write_bin_overview(args,bins,motherbins)
 
 
-### Write eout Proteomeees for NC Viral Genomes
-def write_out_proteomes(args,ncbins):
-
-    ### Parse checkV generated fasta with Host-contamination removed 
-    checkv_directory = args.v
-
-    ### Predict proteins of Created NC viral Genomes
-    prodigalfile_AA = os.path.join(checkv_directory,'nc_genomes_proteins.faa')
-    prodigalfile_GFF = os.path.join(checkv_directory,'nc_genomes_proteins.gff')
-    ncgenomes_outfile = os.path.join(checkv_directory,'nc_genomes.fna')
-    if os.path.exists(prodigalfile_AA):
-        print('Proteins of NC genomes already predicted, delete first to recreate ', prodigalfile_AA)
-    else:
-        try:
-            prodigalexecutable = '/services/tools/prodigal/2.6.3/prodigal'
-            command = [prodigalexecutable,
-                    '-i', ncgenomes_outfile,
-                    '-a', prodigalfile_AA,
-                    '-o', prodigalfile_GFF,
-                    '-p', 'meta',
-                    '-g', '11',
-                    '-q',
-                    '-f', 'gff']
-            subprocess.check_call(command)
-        except:
-            message = 'ERROR: Prodigal finished abnormally.'
-            print(message)
-            sys.exit(1)
-
-
-
 ### Run annotation programmes on NC Viral Genomes
 def annotation_ncgenomes_proteomes(args):
     '''
@@ -441,7 +410,7 @@ def annotation_ncgenomes_proteomes(args):
     databasedirectory = '/home/projects/cpr_10006/projects/phamb/databases/'
     diamond_executable = '/services/tools/diamond/0.9.29/diamond'
     blastp_euk = os.path.join(checkv_directory,'nc_genomes.eukaryotic.viruses.m6')
-    genomes = 'nc_genomes.fna'
+    genomes = os.path.join(checkv_directory,'nc_genomes.fna')
     if os.path.exists(blastp_euk):
         print('BlastP file allready created:',blastp_euk,' delete file to recreate it')
     else:
@@ -450,7 +419,7 @@ def annotation_ncgenomes_proteomes(args):
 
     ### BlastP ALL contigs against Eukaryotic Viruses -
     blastp_euk_all = os.path.join(checkv_directory,'cleaned_genomes.eukaryotic.viruses.m6')
-    genomes = os.path.join(checkv_directory,'cleaned_contigs.fna'),
+    genomes = os.path.join(checkv_directory,'cleaned_contigs.fna')
     if os.path.exists(blastp_euk_all):
         print('BlastP file allready created:',blastp_euk_all,' delete file to recreate it')
     else:
@@ -622,7 +591,7 @@ def write_extended_taxonomy(args):
                 seqid = float(line[2])
                 aln = int(line[3])
                 evalue = float(line[10])
-                if aln < 350 or evalue > 1E-05:
+                if aln < 350 or seqid < 40:
                     continue
                 if binid not in crassbins:
                     crassbins[binid] = []

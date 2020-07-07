@@ -3,6 +3,8 @@
 
 import os 
 import sys
+from Bio import SeqIO
+
 
 def load_checkv_db_files(checkv_db_dir):
     
@@ -258,17 +260,14 @@ def write_bin_overview(args,bins,motherbins):
     fasta_file  = os.path.join(checkv_directory,'cleaned_contigs.fna')
     ncgenomes_outfile = os.path.join(checkv_directory,'nc_genomes.fna')
     written_bin_records = set()
-    if os.path.exists(ncgenomes_outfile):
-        print('NC genomes allready written to',ncgenomes_outfile,' delete file to recreate it')
-    else:
-        outhandle = open(ncgenomes_outfile , 'w')
-        for record in SeqIO.parse(open(fasta_file, 'r'), 'fasta'):
-            recordname = record.id 
-            binid = '_'.join(recordname.split('_')[0:2])
-            if binid in ncbins:
-                if not binid in written_bin_records:
-                    new_record = binid
-                    record.id = new_record 
-                    record.description = ''
-                    SeqIO.write(record, outhandle, 'fasta')
-                    written_bin_records.add(binid)
+    outhandle = open(ncgenomes_outfile , 'w')
+    for record in SeqIO.parse(open(fasta_file, 'r'), 'fasta'):
+        recordname = record.id 
+        binid = '_'.join(recordname.split('_')[0:2])
+        if binid in ncbins:
+            if not binid in written_bin_records:
+                new_record = binid
+                record.id = new_record 
+                record.description = ''
+                SeqIO.write(record, outhandle, 'fasta')
+                written_bin_records.add(binid)

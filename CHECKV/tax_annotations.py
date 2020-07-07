@@ -2,15 +2,17 @@
 
 import os 
 import sys
+import subprocess
+from Bio import SeqIO
+
 
 ###  Predict proteins of NC genomes
-def write_out_proteomes(args,ncbins,prodigalfile_AA):
+def write_out_proteomes_prodigal(args,ncbins,prodigalfile_AA):
 
     ### Parse checkV generated fasta with Host-contamination removed 
     checkv_directory = args.v
 
     ### Predict proteins of Created NC viral Genomes
-    prodigalfile_AA = os.path.join(checkv_directory,'nc_genomes_proteins.faa')
     prodigalfile_GFF = os.path.join(checkv_directory,'nc_genomes_proteins.gff')
     ncgenomes_outfile = os.path.join(checkv_directory,'nc_genomes.fna')
     if os.path.exists(prodigalfile_AA):
@@ -32,6 +34,24 @@ def write_out_proteomes(args,ncbins,prodigalfile_AA):
             print(message)
             sys.exit(1)
 
+
+def write_out_proteomes(args,ncbins,prodigalfile_AA):
+
+    ### Parse checkV generated fasta with Host-contamination removed 
+    checkv_directory = args.v
+
+    written_proteins = set()
+    all_proteins = os.path.join(checkv_directory,'tmp/proteins.faa')
+    outhandle = open(prodigalfile_AA , 'w')
+    for record in SeqIO.parse(open(all_proteins, 'r'), 'fasta'):
+        recordname = record.id
+        binid = '_'.join(recordname.split('_')[:2])
+        if binid in ncbins: 
+            if recordname in written_proteins:
+                continue
+            written_proteins.add(recordname)
+            record.description = ''
+            SeqIO.write(record, outhandle, 'fasta')
 
 ###
 def crass_blast(databasedirectory,executable, proteins, outfile):
@@ -84,12 +104,14 @@ def RVDB_search(databasedirectory,executable, proteins, outfile):
         command = [executable,
                 '-E','0.00001',
                 '--cpu','24',
-                '--tblout',rvdb_ref,
+                '--tblout',outfile,
                 db,
                 proteins]
+        sys.stdout.write(command)
         subprocess.check_call(command,stdout=subprocess.DEVNULL)
     except:
         message = 'ERROR: Hmmsearch finished abnormally.'
+        print(command)
         print(message)
         sys.exit(1)
     
