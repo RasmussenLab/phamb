@@ -61,7 +61,7 @@ def crass_blast(databasedirectory,executable, proteins, outfile):
         command = [executable,
                 '-task','blastp',
                 '-evalue','0.0001',
-                '-num_threads','24',
+                '-num_threads','19',
                 '-db',db,
                 '-query',proteins,
                 '-out',outfile,
@@ -85,6 +85,7 @@ def herpes_blast(databasedirectory,executable, genomes, outfile):
                 '-d',db,
                 '--sensitive',
                 '--index-chunks','1',
+                '--threads','19',
                 '-q',genomes,
                 '-o',outfile,
                 '--outfmt', '6']
@@ -103,11 +104,10 @@ def RVDB_search(databasedirectory,executable, proteins, outfile):
         db = os.path.join(databasedirectory,'rvdb/U-RVDBv18.0-prot.hmm')
         command = [executable,
                 '-E','0.00001',
-                '--cpu','24',
+                '--cpu','19',
                 '--tblout',outfile,
                 db,
                 proteins]
-        sys.stdout.write(command)
         subprocess.check_call(command,stdout=subprocess.DEVNULL)
     except:
         message = 'ERROR: Hmmsearch finished abnormally.'
@@ -125,7 +125,7 @@ def VOG_search(databasedirectory,executable, proteins, outfile):
         db = os.path.join(databasedirectory,'VOG/vog_hmms/AllVOG.hmm')
         command = [executable,
                 '-E','0.00001',
-                '--cpu','24',
+                '--cpu','19',
                 '--tblout',outfile,
                 db,
                 proteins]
@@ -147,7 +147,7 @@ def uniprot_search(databasedirectory,executable, proteins, outfile):
                     '-ublast',proteins,
                     '-evalue', '1e-5',
                     '-blast6out',outfile,
-                    '-threads','24']
+                    '-threads','19']
         subprocess.check_call(command)
     except:
         message = 'ERROR: Usearch finished abnormally.'

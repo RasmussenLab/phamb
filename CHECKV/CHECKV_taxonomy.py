@@ -712,9 +712,6 @@ def write_extended_taxonomy(args):
 
     def assign_nr_taxonomy(args):
         
-
-                    
-
         def load_gi2_name_eukvirus(args):
             gi2name = {}
             viral_euk_proteome = '/home/projects/cpr_10006/projects/phamb/databases/herpes_db/proteomes/herpes.faa'
@@ -748,7 +745,7 @@ def write_extended_taxonomy(args):
                 protein_sim = float(line[2])
                 evalue = float(line[-2])
 
-                if protein_sim >= 35 and evalue <= 1e-05:
+                if protein_sim >= 50 and evalue <= 1e-05:
                     if binid not in bintaxonomy:
                         bintaxonomy[binid] = []
                         bintaxonomy[binid] += [gi2taxid[gi]]

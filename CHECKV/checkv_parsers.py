@@ -1,6 +1,5 @@
 #!/bin/python
 
-
 import os 
 import sys
 from Bio import SeqIO
@@ -72,6 +71,8 @@ def read_checkv_quality(args,bins):
 
     with open(quality_file,'r') as infile:
         header = infile.readline().strip().split('\t')
+        genome_copies_index = header.index('genome_copies')
+        contamination_index = header.index('contamination')
         quality_index = header.index('checkv_quality')
         method_index = header.index('completeness_method')
         miuvig_quality = header.index('miuvig_quality')
@@ -85,8 +86,15 @@ def read_checkv_quality(args,bins):
 
             binobject = bins[binid]
             quality = line[quality_index]
+            genome_copies = float(line[genome_copies_index])
+            contaminaton = line[contamination_index]
+            
+            ### Filter off Bins with little Viral evidence
             if quality == 'Not-determined' and line[viral_genes_index] == '0':
                 continue
+            if genome_copies > 1.25:
+                continue
+            
             binobject.checkv_results['completeness_method'] = line[method_index]
             binobject.checkv_results['completeness'] = line[completeness_index]
             binobject.checkv_results['prophage'] = line[prophage_index]
