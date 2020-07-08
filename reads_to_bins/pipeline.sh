@@ -28,7 +28,7 @@ exec &> >(tee -a "${LOGFILE}")
 readonly SRC_DIR=reads_to_bins
 
 
-echo "This is [NAME]  version ${VERSION}"
+echo "This is version ${VERSION}"
 echo "Running script from: ${SRC_DIR}"
 echo "Current time: `date`"
 echo "Current working directory: `pwd`"

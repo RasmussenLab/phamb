@@ -4,27 +4,17 @@
 # 
 #PBS -l nodes=1:ppn=1:thinnode
 #PBS -l walltime=2:00:00:00
-#PBS -l mem=8gb
+#PBS -l mem=1gb
 
 # Example usage:
-# myqsub -d `pwd` -t 1-$NSAMPLES -F "${ARGS}" MAP.pbs
-
+# myqsub -d `pwd` -t 1 -F "${ARGS}" phamb_pipe/COVERAGE.pbs
 
 ### exit if any errors or unset variables are encountered
 #set -euo pipefail
 
-if [ "$#" -lt 7 ]; then
-    echo "MAP.pbs: Expected at least 7 arguments; received $#: $@"
-    exit 1
-fi
- 
 ### LOAD MODULES NEEDED
 module load tools 
-module load jre/1.8.0-openjdk 
-module load perl/5.24.0 java/1.8.0-openjdk fastqc/0.11.5
-module load pigz/2.3.4
-module load bwa/0.7.16a
-module load minimap2/2.6
+module load perl/5.24.0 
 module load samtools/1.9
 module load bedtools/2.28.0
 
@@ -33,43 +23,29 @@ set -x
 
 ### GLOBAL VARIABLES
 readonly INPUT_TABLE="$1"
-readonly THREADS="$2"
-readonly MAXMEM="$3"
-readonly DO_BAI="$4"
-readonly MAP_METHOD="$5"
-readonly MAP_REFERENCE="$6" 
-readonly MAP_TO_SAME_REF="$7"
+readonly OUTPUTDIR="$2"
+readonly THREADS=4
 
+### echo commands to the error stream (may help debugging)
+set -x 
 shift
 shift
 shift
 shift
 shift
 shift
-readonly QCDIR=01_qced
-OUTPUTDIR=03_mapping
 readonly LOGDIR=log
 readonly JOBID_SIMPLE=`echo ${PBS_JOBID} | sed -r 's/(\[|\.).*$//'`   ## extract the numeric part only
 readonly TEMPDIR=tmp/mapping
 
-mkdir -p "${QCDIR}" "${OUTPUTDIR}" "${LOGDIR}"  "${LOGDIR}/bwa" "${TEMPDIR}"
-
 ## read from a single line corresponding to the job array ID
 read SAMPLE FQ1 FQ2 PLACEHOLDER < <(cat $INPUT_TABLE | sed "${PBS_ARRAYID}q;d")
 
-
-### Define assembly
-if [ ${MAP_TO_SAME_REF} == "true" ]; then 
-    ASSEMBLY=${MAP_REFERENCE}
-    REFNAME=`echo $MAP_REFERENCE | xargs basename | sed -r 's/\.f\w+//'`
-    OUTPUTDIR=03_mapping/${REFNAME}
-    mkdir -p "${OUTPUTDIR}"
-fi
+### Samtools from v. 1.9 sorts with -m 768M  , so using 1 gb should be possible?
 
 if [ ! -f "${OUTPUTDIR}/${SAMPLE}.position.coverage" ]; then
 samtools sort --threads ${THREADS} -o ${OUTPUTDIR}/${SAMPLE}.position.bam -O BAM ${OUTPUTDIR}/${SAMPLE}.bam
 bedtools genomecov -ibam ${OUTPUTDIR}/${SAMPLE}.position.bam > ${OUTPUTDIR}/${SAMPLE}.position.coverage
-
 fi
 
 ### Write out the fraction of the contig with Depth Zero 

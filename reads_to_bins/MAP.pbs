@@ -23,6 +23,7 @@ module load pigz/2.3.4
 module load bwa/0.7.16a
 module load minimap2/2.6
 module load samtools/1.9
+module load bedtools/2.28.0
 
 ### echo commands to the error stream (may help debugging)
 set -x 
@@ -173,10 +174,26 @@ if [ ${MAP_METHOD} == 'minimap2' ]; then
                 exit 1
             fi
             minimap2 -t ${THREADS} -N 50 -ax sr ${ASSEMBLY}.mmi ${FQ1} ${FQ2} | samtools view -F 3584 -b -T ${ASSEMBLY} > ${OUTPUTDIR}/${SAMPLE}.bam
-            samtools sort -n --threads ${THREADS} -o ${OUTPUTDIR}/${SAMPLE}.sorted.bam -O BAM ${OUTPUTDIR}/${SAMPLE}.bam
+            samtools sort --threads ${THREADS} -o ${OUTPUTDIR}/${SAMPLE}.sorted.bam -O BAM ${OUTPUTDIR}/${SAMPLE}.bam
+            bedtools genomecov -ibam ${OUTPUTDIR}/${SAMPLE}.sorted.bam > ${OUTPUTDIR}/${SAMPLE}.contig.coverage
+            
+            ### Write out the fraction of the contig with Depth Zero 
+            awk '$2==0'  ${OUTPUTDIR}/${SAMPLE}.contig.coverage > ${OUTPUTDIR}/${SAMPLE}.contig.zero.coverage
+
+            ### Calculate JGI sum 
+            module load metabat/2.10.2
+            jgi_summarize_bam_contig_depths --noIntraDepthVariance --outputDepth ${OUTPUTDIR}/${SAMPLE}.jgi.depth.txt ${OUTPUTDIR}/${SAMPLE}.sorted.bam
+
+            gzip ${OUTPUTDIR}/${SAMPLE}.contig.coverage ${OUTPUTDIR}/${SAMPLE}.contig.zero.coverage
+
         else
             minimap2 -t ${THREADS} -N 50 -ax sr ${ASSEMBLY} ${FQ1} ${FQ2} | samtools view -F 3584 -b -T ${ASSEMBLY} > ${OUTPUTDIR}/${SAMPLE}.assembly.bam
-            samtools sort -n --threads ${THREADS} -o ${OUTPUTDIR}/${SAMPLE}.sorted.assembly.bam -O BAM ${OUTPUTDIR}/${SAMPLE}.assembly.bam
+            samtools sort --threads ${THREADS} -o ${OUTPUTDIR}/${SAMPLE}.sorted.assembly.bam -O BAM ${OUTPUTDIR}/${SAMPLE}.assembly.bam
+
+            ### Calculate JGI sum 
+            module load metabat/2.10.2
+            jgi_summarize_bam_contig_depths --noIntraDepthVariance --outputDepth ${OUTPUTDIR}/${SAMPLE}.jgi.depth.txt ${OUTPUTDIR}/${SAMPLE}.sorted.assembly.bam
+
         fi
 
         ### Calculate JGI sum 
@@ -210,11 +227,6 @@ if [ ${MAP_METHOD} == 'minimap2' ]; then
     fi
 
 fi
-
-### Calculate JGI sum 
-module load perl/5.24.0 metabat/2.10.2
-jgi_summarize_bam_contig_depths --noIntraDepthVariance --outputDepth ${OUTPUTDIR}/${SAMPLE}.jgi.depth.txt ${OUTPUTDIR}/${SAMPLE}.sorted.bam
-jgi_summarize_bam_contig_depths --noIntraDepthVariance --outputDepth ${OUTPUTDIR}/${SAMPLE}.jgi.depth.txt ${OUTPUTDIR}/${SAMPLE}.sorted.assembly.bam
 
 
 echo `date` Finished!
