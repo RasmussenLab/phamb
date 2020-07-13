@@ -117,7 +117,8 @@ echo `date` "Starting Assembly with metaspades"
 	
 	### Do Post size filtering and attach Sample name to each contig
 	python phamb_pipe/fastx_filterfasta.py --i ${OUTPUTDIR}/contigs.fasta --o ${OUTPUTDIR}/contigs.flt.fa --min ${ASSEMBLY_MINIMUM_CONTIG_LENGTH} --id ${SAMPLE} 
-
+	gzip ${OUTPUTDIR}/contigs.fasta 
+	gzip ${OUTPUTDIR}/contigs.flt.fa 
 fi
 
 ### Clean up
