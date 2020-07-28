@@ -5,35 +5,61 @@ import sys
 from Bio import SeqIO
 
 
-def load_checkv_db_files(checkv_db_dir):
+def lineage_to_name(LCA_number,taxdb):
+    dlineage = {'superkingdom':'NA','kingdom':'NA','phylum':'NA','class':'NA','order':'NA','family':'NA','genus':'NA','species':'NA','subspecies':'NA'}
+    current_level = str(LCA_number)
+    lineage = taxdb.taxid2name[current_level]
+    rank = taxdb.taxid2rank[current_level]
+    dlineage[rank] = lineage
+    while current_level != '1':
+        current_level = taxdb.taxid2parent[current_level]
+        lineage  = taxdb.taxid2name[current_level] 
+        rank= taxdb.taxid2rank[current_level] 
+        dlineage[rank] = lineage
+
+    return dlineage
+
+def load_checkv_db_files(checkv_db_dir,name2taxid,taxdb):
+    '''
+    Load and organise Taxonomy of all Reference Genomes in the checkV database. 
+    '''
     
+    lineage_levels = ['superkingdom','phylum','class','order','family','genus','species','subspecies']
+
     ### Load GCA dir.
     gcatax = {}
-    checkv_gca_taxonomy = os.path.join(checkv_db_dir,'S2_taxonomy.csv')
+    checkv_gca_taxonomy = os.path.join(checkv_db_dir,'checkv_genbank.tsv')
     with open(checkv_gca_taxonomy,'r') as infile:
-        header = infile.readline().strip().split(';')
-        lineage_index = header.index('NCBI lineage')
-        gca_size_index = header.index('Genome length')
-        vog_clade_index = header.index('VOG clade')
+        header = infile.readline().strip().split('\t')
+        lineage_index = header.index('lineage')
+        gca_size_index = header.index('genome_length')
+        vog_clade_index = header.index('vog_clade')
         for line in infile:
-            line = line.strip().split(';') 
+            line = line.strip().split('\t') 
             gca = line[0]
             if gca not in gcatax:
                 gcatax[gca] = {'size':None,'vogclade':None,'lineage':None}
                 size = line[gca_size_index]
                 vogclade = line[vog_clade_index]
-                lineage = line[lineage_index:]
-                lineage = [x.replace('"','').replace(' ','') for x in lineage]
-                lineage = ','.join(lineage)
+                lineage = line[lineage_index].replace(' ','').split(';')
+
+                ### Make complete Lineage
+                lowest_taxid = None
+                while lowest_taxid == None:
+                    name = lineage.pop(-1)
+                    if name in name2taxid:
+                        lowest_taxid = name2taxid[name]                
+                lineage = lineage_to_name(lowest_taxid,taxdb) 
+                taxstring = ';'.join([lineage[l] for l in lineage_levels])
                 gcatax[gca]['size'] = size
                 gcatax[gca]['vogclade'] = vogclade
-                gcatax[gca]['lineage'] = lineage
+                gcatax[gca]['lineage'] = taxstring
     
-    ### Rep tax 
+    ### DTR taxonomy 
     DTRtax = {}
     vogclades = set()
-    checkv_dtr_taxonomy = os.path.join(checkv_db_dir,'S3_refs.tsv')
-    with open(checkv_dtr_taxonomy,'r') as infile:
+    checkv_DTR_taxonomy = os.path.join(checkv_db_dir,'checkv_circular.tsv')
+    with open(checkv_DTR_taxonomy,'r') as infile:
         header = infile.readline()
         for line in infile:
             line = line.strip().split('\t')
@@ -46,16 +72,17 @@ def load_checkv_db_files(checkv_db_dir):
 
     ### establish Cluster network with Representative Genomes 
     checkv_genome_gcatax = {}
-    checkv_clusters = os.path.join(checkv_db_dir,'S4_cluster.csv')
+    checkv_clusters = os.path.join(checkv_db_dir,'checkv_clusters.tsv')
     with open(checkv_clusters,'r') as infile:
-        header = infile.readline().strip().split(';')
-        gca_index = header.index('Rep. GenBank')
+        header = infile.readline().strip().split('\t')
+        gca_index = header.index('genbank_rep')
+        cluster_members = header.index('genome_ids')
         for line in infile:
-            line = line.strip().split(';')
+            line = line.strip().split('\t')
             gca_rep = line[gca_index]
-            if gca_rep == '-':
+            if gca_rep == 'NULL':
                 gca_rep = None
-            genomes = line[1].split(',')
+            genomes = line[cluster_members].split(',')
             for genome in genomes:
                 checkv_genome_gcatax[genome] = gca_rep
 
@@ -142,7 +169,7 @@ def read_checkv_completeness(args,bins,motherbins,checkv_genome_gcatax,gcatax,DT
                     vogclade = gcatax[gca_rep]['vogclade']
 
                     ### Save for GCA taxonomy for the whole Cluster of bins - if the confidence is high 
-                    if aai_confidence == 'high':
+                    if aai_confidence in ['medium','high']:
                         clusterobject = motherbins[motherbinid]
                         clusterobject.motherbintax_GCA = lineage
                         clusterobject.motherbintax_VOGclade = vogclade
@@ -168,45 +195,6 @@ def write_bin_overview(args,bins,motherbins):
     Based on the checkV quality scores for each Bin - selct the NC Viral Genomes and write them to a file
     '''
 
-    def transform_lineage(lineage,VOGclade):
-        '''
-        To make a consistency between the Taxonomy of checkV lineage strings and VOG taxonomy,
-                make a Tax-string of 8 nodes for Caudovirales
-
-        '''
-
-        taxlevels = [[0,'superkingdom'],
-                [1,'phylum'],
-                [2,'class'],
-                [3,'order'],
-                [4,'family'],
-                [5,'genus'],
-                [6,'species'],
-                [7,'strain']]
-
-        if VOGclade == 'Caudovirales':
-            lineage_split = lineage.split(',')
-            new_lineage = [ lineage_split[0] , 'NA', 'NA' ] 
-            new_lineage += lineage_split[1:]
-            fill_NAs = [ 'NA' for i in range(8-len(new_lineage))]
-            new_lineage += fill_NAs
-        elif VOGclade == 'NCLDV':
-            lineage_split = lineage.split(',')
-            new_lineage = [ lineage_split[0] , 'NA', 'NA' ] 
-            new_lineage += lineage_split[1:]
-            fill_NAs = [ 'NA' for i in range(8-len(new_lineage))]
-            new_lineage += fill_NAs
-        else:
-            lineage_split = lineage.split(',')
-            new_lineage = lineage.split(',')
-            new_lineage = [ lineage_split[0] , 'NA', 'NA' ] 
-            new_lineage += lineage_split[1:]
-            fill_NAs = [ 'NA' for i in range(8-len(new_lineage))]
-            new_lineage += fill_NAs
-
-        return(new_lineage)
-
-
 
     ncbins = set()
     outfile = os.path.join(args.v,'checkv_taxonomy.txt')
@@ -227,15 +215,12 @@ def write_bin_overview(args,bins,motherbins):
 
             ### If the cluster can be described with a GCA reference with high Confidence use it for all bins ClusterTaxonomy instead of VOG
             if not motherbins[motherbin].motherbintax_GCA is None:
-                lineage = motherbins[motherbin].motherbintax_GCA
+                clustertaxonomy = motherbins[motherbin].motherbintax_GCA
                 VOGclade =  motherbins[motherbin].motherbintax_VOGclade
-                clustertaxonomy = transform_lineage(lineage,VOGclade) 
-                clustertaxonomy = ';'.join(clustertaxonomy)
+
 
             if not binobject.GCAtax is None:
-                lineage = binobject.GCAtax 
-                Taxonomy = transform_lineage(lineage,VOGclade) 
-                Taxonomy = ';'.join(Taxonomy)
+                Taxonomy = binobject.GCAtax 
             else:
                 Taxonomy = binobject.bintax
                 Taxonomy = Taxonomy + ';NA'

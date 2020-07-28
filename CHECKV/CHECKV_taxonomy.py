@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='''
 ''')
 
 parser.add_argument('-c',help='VAMB clusterfile/clusters.tsv')
-parser.add_argument('-a',help='Annotation file Direcotry')
+parser.add_argument('-a',help='Annotation summary files directory')
 parser.add_argument('-v', help='checkv directory')
 
 
@@ -375,8 +375,8 @@ def parse_checkv_write_overview(args):
     del contig_vog_tax 
 
     ### Load checkV results
-    checkv_db_dir = '/home/projects/cpr_10006/projects/phamb/databases/checkv/checkv_sup'
-    checkv_genome_gcatax, gcatax, DTRtax  = checkv_parsers.load_checkv_db_files(checkv_db_dir)
+    checkv_db_dir = '/home/projects/cpr_10006/projects/phamb/databases/checkv/checkv-db-v0.6/genome_db'
+    checkv_genome_gcatax, gcatax, DTRtax  = checkv_parsers.load_checkv_db_files(checkv_db_dir,name2taxid,taxdb)
     bins = checkv_parsers.read_checkv_quality(args,bins)
     bins,motherbins = checkv_parsers.read_checkv_completeness(args,bins,motherbins,checkv_genome_gcatax,gcatax,DTRtax)
 
@@ -693,6 +693,10 @@ def write_extended_taxonomy(args):
                         LCA = int(FAMLCA[famid])
                         if LCA == 0:
                             continue
+
+                        if not LCA in taxdb.taxid2name:
+                            continue
+                        
                         taxonomy = lineage_to_name(LCA,taxdb)
 
                         for i, lin in enumerate(lineage):
