@@ -3,6 +3,8 @@
 import os 
 import sys
 from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
 
 def lineage_to_name(LCA_number,taxdb):
@@ -132,6 +134,42 @@ def read_checkv_quality(args,bins):
 
 
 
+def write_filtered_quality_summary(args):
+    '''
+    Write a filtered edition of the quality file for those genomes without a viral region (only viral genes between host genes)
+    '''
+
+    contamination_file = os.path.join(args.v,'contamination.tsv')
+    safe_viral_ids = set() 
+    with open(contamination_file,'r') as infile:
+        header = infile.readline().strip().split('\t')
+        viral_length_index = header.index('viral_length')
+        region_index = header.index('region_types')
+        for line in infile:
+            line = line.strip().split('\t')
+            genomeid = line[0]
+            if int(line[viral_length_index]) != 0:
+                safe_viral_ids.add(genomeid)
+    
+    quality_summary_file = os.path.join(args.v,'quality_summary.tsv')
+    quality_summary_file_filtered = os.path.join(args.v,'quality_summary_filtered.tsv')
+
+    with open(quality_summary_file,'r') as infile, open(quality_summary_file_filtered,'w') as outfile:
+        header = infile.readline()
+        outfile.write(header)
+        for line in quality_summary_file:
+            genomeid = line.strip().split('\t')[0]
+            if genomeid in safe_viral_ids:
+                outfile.write(line)
+                
+
+                
+
+
+
+
+
+
 def read_checkv_completeness(args,bins,motherbins,checkv_genome_gcatax,gcatax,DTRtax):
     '''
     Load annotation of each Bin from the checkV completeness file 
@@ -181,7 +219,6 @@ def read_checkv_completeness(args,bins,motherbins,checkv_genome_gcatax,gcatax,DT
             
             bins[binid] = binobject
     return bins, motherbins
-
 
 
 
@@ -243,24 +280,45 @@ def write_bin_overview(args,bins,motherbins):
     ### Write the names of NC Viral Bins to a file
     nc_viral_bins_file = os.path.join(args.v,'nc_viralbins.txt')
     with open(nc_viral_bins_file,'w') as out:
-        for item in ncbins:
-            out.write(str(item)+'\n')
+        for binid in ncbins:
+            out.write(str(binid)+'\n')
 
 
     ### Parse checkV generated fasta with Host-contamination removed 
-    checkv_directory = args.v
+    # Note that some of the Viral Genomes are divided into fragments due to the presence of Host-contamination
+    # binidX_1 
+    # binidX_2 
+    # binidX_3
+    fragmented_viral_genomes = dict()
 
+    checkv_directory = args.v
     fasta_file  = os.path.join(checkv_directory,'cleaned_contigs.fna')
     ncgenomes_outfile = os.path.join(checkv_directory,'nc_genomes.fna')
     written_bin_records = set()
     outhandle = open(ncgenomes_outfile , 'w')
     for record in SeqIO.parse(open(fasta_file, 'r'), 'fasta'):
         recordname = record.id 
-        binid = '_'.join(recordname.split('_')[0:2])
-        if binid in ncbins:
-            if not binid in written_bin_records:
-                new_record = binid
-                record.id = new_record 
-                record.description = ''
-                SeqIO.write(record, outhandle, 'fasta')
-                written_bin_records.add(binid)
+        recordname_split = recordname.split('_')
+        if len(recordname_split) == 2:
+            binid = '_'.join(recordname.split('_')[0:2])
+            if binid in ncbins:
+                if not binid in written_bin_records:
+                    new_record = binid
+                    record.id = new_record 
+                    record.description = ''
+                    SeqIO.write(record, outhandle, 'fasta')
+                    written_bin_records.add(binid)
+        else:
+            ### Host contamination division.
+            binid = '_'.join(recordname.split('_')[0:2])
+            if binid in ncbins:
+                if not binid in fragmented_viral_genomes:
+                    fragmented_viral_genomes[binid] = ""
+                    fragmented_viral_genomes[binid] += record.seq
+                else:
+                    fragmented_viral_genomes[binid] += record.seq
+
+    ### Write the combined fragmenteed viral genomes 
+    for binid in fragmented_viral_genomes:
+        rec = SeqRecord(fragmented_viral_genomes[binid],id=binid, description='')
+        SeqIO.write(rec, outhandle, 'fasta')

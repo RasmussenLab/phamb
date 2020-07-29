@@ -591,7 +591,7 @@ def write_extended_taxonomy(args):
                 seqid = float(line[2])
                 aln = int(line[3])
                 evalue = float(line[10])
-                if aln < 350 or seqid < 40:
+                if aln < 350 or evalue > 1E-05:
                     continue
                 if binid not in crassbins:
                     crassbins[binid] = []
@@ -696,7 +696,7 @@ def write_extended_taxonomy(args):
 
                         if not LCA in taxdb.taxid2name:
                             continue
-                        
+
                         taxonomy = lineage_to_name(LCA,taxdb)
 
                         for i, lin in enumerate(lineage):
@@ -1099,6 +1099,8 @@ def ortholog_proteins(args):
 if __name__ == "__main__":
     args = parser.parse_args()
 
+    ### Write filtered quality summary file
+    checkv_parsers.write_filtered_quality_summary(args)
     
     nc_viral_bins_file = os.path.join(args.v,'nc_viralbins.txt')
     if os.path.exists(nc_viral_bins_file):
