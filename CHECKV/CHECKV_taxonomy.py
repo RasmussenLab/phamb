@@ -406,6 +406,17 @@ def annotation_ncgenomes_proteomes(args):
         tax_annotations.crass_blast(databasedirectory, blastp_executable, prodigalfile_AA, blastp_crass)
 
 
+    ### BlastN against PLSDB (Plasmid Database)
+    blastn_plsdb = os.path.join(checkv_directory,'nc_genomes.PLSDB.m6')
+    databasedirectory = '/home/projects/cpr_10006/projects/phamb/databases/'
+    blastn_executable= '/services/tools/ncbi-blast/2.8.1+/bin/blastn'
+    genomes = os.path.join(checkv_directory,'cleaned_contigs.fna')
+    if os.path.exists(blastn_plsdb):
+        print('BlastP file allready created:',blastn_plsdb,' delete file to recreate it')
+    else:
+        tax_annotations.PLSDB_blast(databasedirectory, blastn_executable, genomes, blastn_plsdb)
+
+
     ### BlastP against Eukaryotic Viruses 
     databasedirectory = '/home/projects/cpr_10006/projects/phamb/databases/'
     diamond_executable = '/services/tools/diamond/0.9.29/diamond'
@@ -1101,6 +1112,9 @@ if __name__ == "__main__":
 
     ### Write filtered quality summary file
     checkv_parsers.write_filtered_quality_summary(args)
+
+    ### Annotate each Viral cluster as either: (1) HQ-reference (2) Grey-matter/HMM-based evaluation (3) Dark-matter/rest
+    checkv_parsers.label_checkv_bins_by_quality(args)
     
     nc_viral_bins_file = os.path.join(args.v,'nc_viralbins.txt')
     if os.path.exists(nc_viral_bins_file):
@@ -1115,6 +1129,7 @@ if __name__ == "__main__":
         for line in infile:
             binid = line.strip()
             ncbins.add(binid)
+
 
     ### Subset the Cleaned Genome fasta with the >80% complete bins
     # Annotate Proteins to do more Extensive Taxonomy Characterisation

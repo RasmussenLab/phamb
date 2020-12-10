@@ -6,6 +6,7 @@ import argparse
 import os
 import scipy.stats
 import multiprocessing as mp
+import gzip
 import pickle
 
 parser = argparse.ArgumentParser(description='''
@@ -19,79 +20,6 @@ parser.add_argument('-o', help='file outbase')
 
 
 
-def get_samples_and_coverage(args):
-    jgi_samples = args.l
-    jgi_samples = '05_binning/vamb_on_jgi_v3/HMP2/HMP2.depthfiles.complete.txt'
-    sample_list = []
-    sample_counter = 0
-    with open(jgi_samples,'r') as infile:
-        samples = ['contigname']
-        for line in infile:
-            line = line.strip()
-            base = os.path.basename(line)
-            base = base.replace('.jgi.depth.txt','')
-            coverage_file = line.replace('.jgi.depth.txt','.position.zero.coverage')
-            if os.path.exists(coverage_file):
-                sample_list.append((coverage_file,base,sample_counter))
-                samples.append(base)
-            sample_counter += 1
-    samples = np.array(samples).reshape(1,-1)
-
-    ### Get the right contig order from any given JGI file
-    jgi_depth_file = sample_list[0][0].replace('.position.zero.coverage','.jgi.depth.txt')
-    contig_order = []
-    with open(jgi_depth_file,'r') as infile:
-        infile.readline()
-        for line in infile:
-            contig = line.strip().split()[0]
-            contig_order.append(contig)
-
-    ### Calculate breadth of coverage for each contig in each sample 
-    outbase = '10_abundances'
-    if not os.path.exists(outbase + '/contig_breadth_of_coverage.pickle'):
-
-        def get_coverage_worker(coverage_file,sample,return_dict):
-            '''
-            For each contig, contig coverage is determined by the proportion of non-covered positions. 
-            Notice we only consider how large a proportion the '0' depth position accounts for.
-            '''
-
-            breadth_of_coverage = dict()
-            with open(coverage_file,'r') as infile:
-                for line in infile:
-                    contig, depth, startpos, endpos, fraction = line.strip().split('\t')
-                    if depth == '0':
-                        contig_coverage = 1-float(fraction)
-                        if contig_coverage >= 0.75:
-                            breadth_of_coverage[contig] = 1
-            return_dict[sample] = breadth_of_coverage
-            
-        ### Using Multiple threads!!! To parse the coverage files for each contig.
-        manager = mp.Manager()
-        return_dict =  manager.dict()
-        n_cores = 3
-        pool = mp.Pool(n_cores)
-        for item in sample_list:
-            coverage_file = item[0]
-            sample = item[1]
-            pool.apply_async(get_coverage_worker, args=(coverage_file,sample,return_dict))
-        pool.close()
-        pool.join()
-        breadth_of_coverage = dict() 
-        for sample in return_dict:
-            breadth_of_coverage[sample] = return_dict[sample]
-        
-        ### Save the breadth of coverage
-        outbase = '10_abundances'
-        with open(outbase + '/contig_breadth_of_coverage.pickle', 'wb') as fp:
-            pickle.dump(breadth_of_coverage, fp, protocol=pickle.HIGHEST_PROTOCOL)
-    else:
-        breadth_of_coverage = pickle.load( open( outbase + '/contig_breadth_of_coverage.pickle', "rb" ) )
-      
-    return samples, sample_list, breadth_of_coverage, contig_order
-
-
-
 class bin_abundance:
      def __init__(self,bin_name,mothercluster):
         self.bin = bin_name
@@ -100,8 +28,42 @@ class bin_abundance:
         self.contigs = set()
         self.binRPKM = None
         self.binRPM = None
-     
 
+
+
+def parse_prophages(blastn_file,population_type):
+    
+    prophages = dict()
+    with gzip.open(blastn_file,'rt') as infile:
+        for line in infile:
+            line = line.strip().split('\t')
+            phagebin, MAG_contig, sequence_identity, alignment = line[:4]
+            phagesize, MAG_contig_size = line[-2],line[-1]
+            phagecoverage = int(alignment)/int(phagesize) 
+
+            
+            
+            if phagecoverage >= 0.80 and int(alignment) >= 4000:
+                phagemotherbin = phagebin.split('_')[1]
+
+                if not phagemotherbin in population_type:
+                    continue
+
+                ctype = population_type[phagemotherbin]
+                if ctype in ['HQ-ref','Grey-matter']:
+                    if len(phagebin.split('_')) == 3:
+                        phagebin = '_'.join(phagebin.split('_')[:2])
+                    if not MAG_contig in prophages:
+                        prophages[MAG_contig] = dict()
+                        prophages[MAG_contig][phagemotherbin] = (phagebin,int(alignment),float(sequence_identity),phagecoverage,ctype)
+                    else:
+                        if phagemotherbin in prophages[MAG_contig]:
+                            current_alignment = prophages[MAG_contig][phagemotherbin][1]
+                            if int(alignment) > current_alignment:
+                                prophages[MAG_contig][phagemotherbin] = (phagebin,int(alignment),float(sequence_identity),phagecoverage,ctype)
+                        else:
+                            prophages[MAG_contig][phagemotherbin] = (phagebin,int(alignment),float(sequence_identity),phagecoverage,ctype)
+    return prophages
 
 def calculate_avg_motherbinRPKM(bin_abundances,motherbins):
         
@@ -142,6 +104,9 @@ def get_bin_abundances(args,sample_list, breadth_of_coverage, contig_order):
     ### parse contigs of cluster file 
     clusterfile = args.c
     magfile = args.m
+
+    breadth_of_coverage = pickle.load( open('10_abundances/contig_breadth_of_coverage.pickle', "rb" ) )
+
     clusterfile = '05_binning/vamb_on_jgi_v3/HMP2/clusters.tsv'
     magfile = '07_binannotation/bacteria/checkm/HMP2.all.MQNC.MAGS'
 
@@ -162,9 +127,38 @@ def get_bin_abundances(args,sample_list, breadth_of_coverage, contig_order):
     ### Load MAGS
     mags = set()
     with open(magfile,'r') as infile:
+        infile.readline()
         for line in infile:
-            line = line.strip().split('\t')[0]
-            mags.add(line)
+            MAG = line.strip().split('\t')[0]
+            mags.add(MAG.split('_')[1])
+
+    contig_to_mag = dict()
+    with open(clusterfile,'r') as infile:
+        for line in infile:
+            line = line.strip().split()
+            mothercluster, contig = line[0],line[1]
+            binid = contig.split('_')[0] + '_' + mothercluster
+            if not mothercluster in mags:
+                continue
+            contig_to_mag[contig] = binid
+
+
+    population_type = dict()
+    with open('07_binannotation/checkv/VAMB_bins/population_types.tsv','r') as infile:
+        for line in infile:
+            phagemotherbin, ctype = line.strip().split()
+            population_type[phagemotherbin] = ctype
+
+    ### Load Integrated Prophage contigs 
+    blastn_file = '13_novoclusters/blastn/MAGS.all.virus.m6.gz'
+    prophage_contigs = parse_prophages(blastn_file,population_type)
+
+    ### Determine which viral motherbins we need to calculate avg. RPKM for. 
+    prophage_motherbins = []
+    for c in prophage_contigs:
+        mbins = [prophage_motherbins.append(x) for x in prophage_contigs[c] ]
+    prophage_motherbins = set(prophage_motherbins)
+    prophage_MAGs = [contig_to_mag[c] for c in prophage_contigs.keys()]
 
     bin_abundances = dict()
     with open(clusterfile,'r') as infile:
@@ -172,10 +166,10 @@ def get_bin_abundances(args,sample_list, breadth_of_coverage, contig_order):
             line = line.strip().split()
             mothercluster, contig = line[0],line[1]
             binid = contig.split('_')[0] + '_' + mothercluster
-            if not binid in mags:
+            if not binid in prophage_MAGs and not mothercluster in prophage_motherbins:
                 continue
             contiglen = contig_lengths_lookup[contig]
-            if binid not in bin_abundances:     
+            if not binid in bin_abundances:     
                 mothercluster = binid.split('_')[1]
                 binobject = bin_abundance(binid,mothercluster)
                 binobject.contigs.add(contig)
@@ -197,7 +191,7 @@ def get_bin_abundances(args,sample_list, breadth_of_coverage, contig_order):
     sample_order_lookup = {k:i for i,k in enumerate(sample_order) }
     sample_order_lookup_indices = {i:k for i,k in enumerate(sample_order) }    
     sample_indices = np.array( [sample_order_lookup[x[1]] for x in sample_list]) 
-
+    new_sample_order = [sample_order_lookup_indices[i] for i in sample_indices]
     nsamples = len(sample_indices)
     matrix_subset = matrix[:,sample_indices]
 
@@ -244,6 +238,92 @@ def get_bin_abundances(args,sample_list, breadth_of_coverage, contig_order):
 
     ### Remember bin_abundances is a dict-object of class-objects
     ### motherbins_abundances is a standard dict 
+
+    ### Now parse Through Prophage contigs - calculate the RPKM ratio of Free-Phage vs. contig w. phage integrated in that sample.
+    prophage_RPKM_table = []
+    prophage_samples = dict()
+    for contig in prophage_contigs:
+        s = contig.split('_')[0]
+
+        if not s in new_sample_order:
+            continue
+        six = new_sample_order.index(s)
+        cix = matrix_indices_dict[contig]
+
+        contig_RPKM = matrix_subset[cix, six]
+        MAG = contig_to_mag[contig]
+        MAG_motherbin = MAG.split('_')[1]
+        MAG_RPKM = motherbins_avgRPKM[MAG_motherbin][six]
+
+        prophage_ratios[contig] = dict()
+        for phagemotherbin in prophage_contigs[contig]:
+
+            ### 
+            phagebin = prophage_contigs[contig][phagemotherbin][0]
+            #phage_RPKM = motherbins_avgRPKM[phagemotherbin][six]
+            phage_RPKM = motherbins_avgRPKM[phagemotherbin][six]
+            #bin_abundances[phagebin].binRPKM[six]
+
+            if phage_RPKM >0:
+                cov = prophage_contigs[contig][phagemotherbin][3]
+                contig_phage_ratio = contig_RPKM/phage_RPKM
+                MAG_phage_ratio = MAG_RPKM/phage_RPKM
+                prophage_ratios[contig][phagebin] = (contig_phage_ratio,cov,MAG)
+                row = [contig,s, MAG, phagebin,contig_RPKM,MAG_RPKM,phage_RPKM,phagemotherbin]
+                prophage_RPKM_table += [row]
+   
+                if not phagemotherbin in prophage_samples:
+                    prophage_samples[phagemotherbin] = [(s,MAG)]
+                else:
+                    prophage_samples[phagemotherbin] += [(s,MAG)]                  
+
+    fileout = os.path.join('10_abundances','prophage_contig_RPKM.txt')
+
+    with open(fileout,'w') as out:
+        for row in prophage_RPKM_table:
+            row = [str(x) for x in row]
+            line = '\t'.join(row)
+            out.write(line+'\n')
+
+    ### Now we need to calculate what the corresponding 'Free' Phage
+    # We basically know that the  
+    free_pratio = []
+
+    free_phage_RPKM_table = []
+    #freephage_ratios = dict()
+    for phagemotherbin in prophage_samples:
+        hosts = set([p[1].split('_')[1] for p in prophage_samples[phagemotherbin]])
+        pro_phage_samples = [p[0] for p in prophage_samples[phagemotherbin]]
+        non_prophage_samples = [s for s in new_sample_order if not s in pro_phage_samples]
+
+        for sample in non_prophage_samples:
+            six = new_sample_order.index(sample)
+            phagebin = sample +'_'+phagemotherbin 
+
+            phage_RPKM = motherbins_avgRPKM[phagemotherbin][six]
+
+            if not phage_RPKM >0:
+                continue
+
+            for MAG_motherbin in hosts:
+                MAG = sample + '_' + MAG_motherbin
+
+                MAG_RPKM = motherbins_avgRPKM[MAG_motherbin][six]
+
+                if not MAG_RPKM >0 :
+                    continue
+
+                row = [sample, MAG, phagebin,MAG_RPKM,phage_RPKM,phagemotherbin]
+                free_phage_RPKM_table += [row]
+
+    fileout = os.path.join('10_abundances','freephage_contig_RPKM.txt')
+    with open(fileout,'w') as out:
+        for row in free_phage_RPKM_table:
+            row = [str(x) for x in row]
+            line = '\t'.join(row)
+            out.write(line+'\n')
+
+
 
     return bin_abundances, motherbins_avgRPKM, motherbins_avgRPM
 

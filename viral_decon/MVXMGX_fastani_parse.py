@@ -251,8 +251,6 @@ def write_fastani_table_extended(outfile,mgx_checkv,mvx_checkv,fastani_table_fil
     print('Parsing FastANI')
     parse_write_fastani(fastani_table_file,outfile, MVX_checkv, MGX_checkv,best_representative_dict)
 
-    
-
 datasets = ['copsac','diabimu_t1d','HMP2']
 for d in datasets:
     os.chdir('/home/projects/cpr_10006/projects/phamb/{}'.format(d))
@@ -273,6 +271,18 @@ for d in datasets:
     mgx_checkv = '07_binannotation/checkv/VAMB_bins/quality_summary.tsv'
     fileout = '06_fastani_MGXMVX/all.fastani_extended.tsv'
     fastani = '06_fastani_MGXMVX/mvx_mgs.all.fastani.txt'
+
+    write_fastani_table_extended(fileout,mgx_checkv,mvx_checkv,fastani)
+
+### Second edition from Shiraz
+
+datasets = ['copsac']
+for d in datasets:
+    os.chdir('/home/projects/cpr_10006/projects/phamb/{}'.format(d))
+    mvx_checkv ='combined_assemblies/checkv.out.new.vOTU/quality_summary.tsv'
+    mgx_checkv = '07_binannotation/checkv/VAMB_bins/quality_summary.tsv'
+    fileout = '06_fastani_MGXMVX/all.fastani_extended.2.tsv'
+    fastani = '06_fastani_MGXMVX/mvx_mgs.all.fastani.2.txt'
 
     write_fastani_table_extended(fileout,mgx_checkv,mvx_checkv,fastani)
 

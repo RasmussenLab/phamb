@@ -572,7 +572,7 @@ def aggregate_bin_annotation(args,cls,binsannos):
 
 
 
-def write_concate_sequences(args,cls,_vambbins_filtered,_smaller_organisms ):
+def write_concate_sequences(args,cls,_vambbins_filtered):
     '''
     Write out Contigs Concatenated as Bins 
     Write out Contigs individually
@@ -580,11 +580,9 @@ def write_concate_sequences(args,cls,_vambbins_filtered,_smaller_organisms ):
     
     viral_contigs_out = os.path.join(args.outdir,'VAMBV3.Viral_RF_predictions.contigs.fna')
     viral_bins_out = os.path.join(args.outdir,'VAMBV3.Viral_RF_predictions.bins.fna')
-    viral_binids = set(_vambbins_filtered.binid)
-    smaller_organisms_binids = set(_smaller_organisms.binid)
+    binids = set(_vambbins_filtered.binid)
 
     print('Parsing Fasta sequences - this may take a while...')
-    all_clusters = {}
     clusters = {}
     with open(viral_contigs_out,'w') as out:
         for record in SeqIO.parse(open(args.fasta, 'r'), 'fasta'):
@@ -592,31 +590,18 @@ def write_concate_sequences(args,cls,_vambbins_filtered,_smaller_organisms ):
             if contigname not in cls:
                 continue
             binid = cls[contigname][1]
-            if binid in viral_binids:
+            if binid in binids:
                 out.write('>{}\n{}\n'.format(contigname,record.seq))
                 if binid not in clusters:
                     clusters[binid] = ""
                     clusters[binid] += record.seq
                 else:
                     clusters[binid] += record.seq
-            if binid in smaller_organisms_binids:
-                if binid not in all_clusters:
-                    all_clusters[binid] = ""
-                    all_clusters[binid] += record.seq
-                else:
-                    all_clusters[binid] += record.seq
-
+    
     ### Write out concatenated bins
     with open(viral_bins_out,'w') as out:
         for binid in clusters:
             sequence = clusters[binid]
-            out.write('>{}\n{}\n'.format(binid,sequence))
-
-    ### All bins below 1.1 million bp
-    bins_out = os.path.join(args.outdir,'VAMBV3.smaller.bins.fna')
-    with open(bins_out,'w') as out:
-        for binid in all_clusters:
-            sequence = all_clusters[binid]
             out.write('>{}\n{}\n'.format(binid,sequence))
 
 
@@ -637,20 +622,19 @@ def RF_decontaminate(args):
     _vambbins['Prediction'] = eval_predictions
 
     _vambbins_filtered = _vambbins[ (_vambbins.Prediction =='Viral') & (_vambbins.nVOGs >= 1) & (_vambbins.cluster_DVF_score >= 0.3) ]
-    _smaller_organisms = _vambbins[ (_vambbins.binsize < 1100000) ]
+    
     table_file_annotated = os.path.join(args.outdir,'vambbins_aggregated_annotation.Viral.txt')
     _vambbins_filtered.sort_values(by='binsize',ascending=False).to_csv(table_file_annotated,sep='\t',index=False)
 
-
+    ### Just in case, read clusters from VAMB clusters file.
+    cls, binsannos = read_in_clusters(args)
 
 
     if args.fasta is None:
         print('You need to provide the -f argument in order to write fasta files of Viral Bins and Contigs!')
         sys.exit(0)
-
     ### Write out contigs and Bins concatenated
-    cls, binsannos = read_in_clusters(args)
-    write_concate_sequences(args,cls,_vambbins_filtered,_smaller_organisms)
+    write_concate_sequences(args,cls,_vambbins_filtered)
     print('Done Writing Viral Sequences!')
 
 

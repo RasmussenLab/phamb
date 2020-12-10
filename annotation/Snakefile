@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+
+### Local Databases​
+MICOMPLETEDB = config.get("MICOMPLETEDB","")
+VOGDB= config.get("VOGDB","")
+SAMPLES = config.get("sample_file", "")
+PROJECT = config.get("project", "")
+TMP_DIR = config.get("tmpdir", "")
+CONTIGSUFFIX = config.get("contig_suffix", "")
+
+### read sample ids to be parsed.
+IDS = []
+with open(SAMPLES,'r') as infile:
+    for line in infile:
+        line = line.rstrip()
+        IDS.append(line)
+
+rule all:
+    input:
+        expand("04_snakeanno/{sample}/{sample}.hmmMiComplete105.tbl", sample=IDS),
+        expand("04_snakeanno/{sample}/{sample}.hmmVOG.tbl", sample=IDS),
+        expand("04_snakeanno/{sample}/contigs" + CONTIGSUFFIX + "_gt2000bp_dvfpred.txt", sample=IDS)
+
+rule PRODIGAL:
+    input:
+        contigs = "02_assembly/{sample}/{sample}" + CONTIGSUFFIX
+    output:
+        proteins = "04_snakeanno/{sample}/{sample}.predicted_proteins.faa",
+        genes = "04_snakeanno/{sample}/{sample}.predicted_proteins.fna"
+    params:
+        walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
+    threads:
+        int(1)
+    log:
+        "log/prodigal/{sample}.prodigal.log"
+    shell:
+        "module load prodigal/2.6.3;"
+        "prodigal -i {input.contigs} -d {output.genes} -a {output.proteins} -p meta -g 11 -q 2>{log}"
+
+rule miComplete:
+    input:
+        proteins = "04_snakeanno/{sample}/{sample}.predicted_proteins.faa",
+        DB = MICOMPLETEDB
+    output:
+        hmmfile = "04_snakeanno/{sample}/{sample}.hmmMiComplete105.tbl"
+    params:
+        walltime="9600", nodes="1", ppn="4", mem="5gb", project=PROJECT
+    threads:
+        int(4)
+    log:
+        "log/hmm/{sample}.micomplete.log"
+    shell:
+        "module load hmmer/3.2.1;"
+        "hmmsearch --cpu {threads} -E 1.0e-05 --tblout {output.hmmfile} {input.DB} {input.proteins} 2>{log}"
+
+rule VOG:
+    input:
+        proteins = "04_snakeanno/{sample}/{sample}.predicted_proteins.faa",
+        DB = VOGDB
+    output:
+        hmmfile = "04_snakeanno/{sample}/{sample}.hmmVOG.tbl"
+    params:
+        walltime="9600", nodes="1", ppn="4", mem="5gb", project=PROJECT
+    threads:
+        int(4)
+    log:
+        "log/hmm/{sample}.VOG.log"
+    shell:
+        "module load hmmer/3.2.1;"
+        "hmmsearch --cpu {threads} -E 1.0e-05 --tblout {output.hmmfile} {input.DB} {input.proteins} 2>{log}"
+
+rule DeepVirFinder:
+    input:
+        contigs = "02_assembly/{sample}/{sample}" + CONTIGSUFFIX
+    output:
+        dvffile = "04_snakeanno/{sample}/contigs" + CONTIGSUFFIX + "_gt2000bp_dvfpred.txt" 
+    params:
+        walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
+    threads:
+        int(1)
+    log:
+        "log/DVF/{sample}.dvf.log"
+    shell:
+        'eval "$(conda shell.bash hook)";'
+        'set +u;'
+        "conda activate deepvirfinder;"
+        'set -u;'
+        "python /home/projects/cpr_10006/projects/phamb/tools/DeepVirFinder/dvf.py "
+        "-i {input.contigs} -o {output.dvffile} -l 2000 -c {threads} 2>{log}"

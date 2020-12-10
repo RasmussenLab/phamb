@@ -5,7 +5,7 @@ import sys
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-
+from collections import defaultdict
 
 def lineage_to_name(LCA_number,taxdb):
     dlineage = {'superkingdom':'NA','kingdom':'NA','phylum':'NA','class':'NA','order':'NA','family':'NA','genus':'NA','species':'NA','subspecies':'NA'}
@@ -133,6 +133,92 @@ def read_checkv_quality(args,bins):
     return bins
 
 
+def label_checkv_bins_by_quality(args):
+    """[summary]
+
+    Args:
+        args ([type]): [description]
+        bins ([type]): [description]
+    """
+    quality_file = os.path.join(args.v,'quality_summary.tsv')
+
+    population_type_score = {3:'HQ-ref',2:'Grey-matter',1:'Dark-matter'}
+
+    viral_population_types = defaultdict()
+    with open(quality_file,'r') as infile:
+        header = infile.readline().strip().split('\t')
+        genome_copies_index = header.index('genome_copies')
+        contamination_index = header.index('contamination')
+        quality_index = header.index('checkv_quality')
+        method_index = header.index('completeness_method')
+        miuvig_quality_index = header.index('miuvig_quality')
+        viral_genes_index = header.index('viral_genes')
+        prophage_index = header.index('prophage')
+        completeness_index = header.index('completeness')
+
+        for line in infile:
+            line = line.strip().split('\t')
+            binid = line[0]
+            motherbin = binid.split('_')[1]
+            population_type = None
+
+            genome_copies = float(line[genome_copies_index])
+            contaminaton = line[contamination_index]
+            
+            completeness_method = line[method_index]
+            completeness = line[completeness_index] 
+            checkv_quality = line[quality_index]
+            miuvig_quality = line[miuvig_quality_index]
+
+            if genome_copies > 1.25:
+                continue
+
+            if checkv_quality in ['High-quality'] and completeness_method == 'AAI-based':
+                population_type = 3
+                if motherbin in viral_population_types:
+                    if population_type > viral_population_types[motherbin]:
+                        viral_population_types[motherbin] = population_type
+                else:
+                    viral_population_types[motherbin] = population_type
+                continue
+            
+            if checkv_quality in ['High-quality','Medium-quality'] and completeness_method == 'HMM-based':
+                population_type = 2
+                if motherbin in viral_population_types:
+                    if population_type > viral_population_types[motherbin]:
+                        viral_population_types[motherbin] = population_type
+                else:
+                    viral_population_types[motherbin] = population_type
+                continue
+            
+            if checkv_quality in ['Medium-quality']:
+                population_type = 2
+                if motherbin in viral_population_types:
+                    if population_type > viral_population_types[motherbin]:
+                        viral_population_types[motherbin] = population_type
+                else:
+                    viral_population_types[motherbin] = population_type
+                continue
+
+            
+            population_type = 1
+            if not motherbin in viral_population_types:
+                viral_population_types[motherbin] = population_type
+        
+        fileout = os.path.join(args.v,'population_types.tsv')
+        with open(fileout,'w') as out:
+            for motherbin in viral_population_types:
+                _type = viral_population_types[motherbin]
+                population_type = population_type_score[_type]
+                lineout = '\t'.join( [motherbin,population_type] )
+                out.write(lineout + '\n')
+
+
+
+
+    
+
+
 
 def write_filtered_quality_summary(args):
     '''
@@ -144,11 +230,15 @@ def write_filtered_quality_summary(args):
     with open(contamination_file,'r') as infile:
         header = infile.readline().strip().split('\t')
         viral_length_index = header.index('viral_length')
+        viral_gene_index = header.index('viral_genes')
         region_index = header.index('region_types')
         for line in infile:
             line = line.strip().split('\t')
             genomeid = line[0]
-            if int(line[viral_length_index]) != 0:
+            regiontype = line[region_index]
+            if int(line[viral_length_index]) != 0 or int(line[viral_gene_index]) != 0:
+                safe_viral_ids.add(genomeid)
+            if regiontype == 'unclassified':
                 safe_viral_ids.add(genomeid)
     
     quality_summary_file = os.path.join(args.v,'quality_summary.tsv')
@@ -219,7 +309,6 @@ def read_checkv_completeness(args,bins,motherbins,checkv_genome_gcatax,gcatax,DT
             
             bins[binid] = binobject
     return bins, motherbins
-
 
 
 

@@ -9,6 +9,8 @@ import subprocess
 import copy
 import gzip
 
+
+
 ### custom modulees
 import tax_annotations
 import checkv_parsers
@@ -25,9 +27,6 @@ parser.add_argument('-v', help='checkv directory')
 ### Orthologous proteins for making Phylogenetic Tree
 def ortholog_proteins(args):
     
-
-
-
         def get_terl_proteins(checkv_directory):
             '''
             VOG terminase markers are found with a simple grep-command: " grep -i terminase vog.annotations.tsv  | grep -i large  " 
@@ -42,10 +41,11 @@ def ortholog_proteins(args):
 
 
             ### Annotation files to parse 
+            
             blastp_crass = os.path.join(checkv_directory,'nc_genomes.crassphage.polterm.m6')
             voghmmfile = os.path.join(checkv_directory,'nc_genomes.VOG.hmmsearch')
-            eggfile = os.path.join(checkv_directory,'eggnog/nc_genomes_proteins.emapper.annotations')
-            interprofile = os.path.join(checkv_directory,'eggnog/interproscan.tsv')
+            #eggfile = os.path.join(checkv_directory,'eggnog/nc_genomes_proteins.emapper.annotations')
+            #interprofile = os.path.join(checkv_directory,'eggnog/interproscan.tsv')
 
             ### Crassphage markers
             with open(blastp_crass,'r') as infile:
@@ -85,42 +85,42 @@ def ortholog_proteins(args):
 
             ### Fluffy String Search for Interpro and Eggnog
             ### Eggnog
-            with open(eggfile,'r') as infile:
-                for line in infile:
-                    if line[0] == '#':
-                        continue
-                    line = line.strip().split('\t')
-                    proteinid = line[0]
-                    egg = line[1]
-                    binid = '_'.join(proteinid.split('_')[:2])
-                    eggdescription = line[-1].lower()
-                    if 'terminase' in eggdescription and 'large' in eggdescription:
-                        terl_proteins.add(proteinid)
-                        if not binid in terl_genomes:
-                            terl_genomes[binid] = set([egg])
-                        else:
-                            terl_genomes[binid].add(egg)
-            ### Interpro 
-            with open(interprofile,'r') as infile:
-                for line in infile:
-                    line = line.strip().split('\t')
-                    proteinid = line[0] 
-                    binid = '_'.join(proteinid.split('_')[:2])
-                    IPRid = line[-2]
-                    iprdesc = line[-1].lower()
-                    if 'terminase' in iprdesc and 'large' in iprdesc:
-                        terl_proteins.add(proteinid)
-                        if not binid in terl_genomes:
-                            terl_genomes[binid] = set([IPRid])
-                        else:
-                            terl_genomes[binid].add(IPRid)
+            #   with open(eggfile,'r') as infile:
+            #       for line in infile:
+            #           if line[0] == '#':
+            #               continue
+            #           line = line.strip().split('\t')
+            #           proteinid = line[0]
+            #           egg = line[1]
+            #           binid = '_'.join(proteinid.split('_')[:2])
+            #           eggdescription = line[-1].lower()
+            #           if 'terminase' in eggdescription and 'large' in eggdescription:
+            #               terl_proteins.add(proteinid)
+            #               if not binid in terl_genomes:
+            #                   terl_genomes[binid] = set([egg])
+            #               else:
+            #                   terl_genomes[binid].add(egg)
+            #   ### Interpro 
+            #   with open(interprofile,'r') as infile:
+            #       for line in infile:
+            #           line = line.strip().split('\t')
+            #           proteinid = line[0] 
+            #           binid = '_'.join(proteinid.split('_')[:2])
+            #           IPRid = line[-2]
+            #           iprdesc = line[-1].lower()
+            #           if 'terminase' in iprdesc and 'large' in iprdesc:
+            #               terl_proteins.add(proteinid)
+            #               if not binid in terl_genomes:
+            #                   terl_genomes[binid] = set([IPRid])
+            #               else:
+            #                   terl_genomes[binid].add(IPRid)
             return terl_proteins, terl_genomes
 
         def write_out_proteins(checkv_directory,marker_proteins,genome_taxonomy,marker,viralfamily=None):
             print(viralfamily)
             prodigalfile_AA = os.path.join(checkv_directory,'nc_genomes_proteins.faa')
             if not viralfamily is None:
-                protein_outfile = os.path.join(checkv_directory,'orthologs',marker +'.'+ viralfamily + '.faa')
+                protein_outfile = os.path.join(checkv_directory,'orthologs2',marker +'.'+ viralfamily + '.faa')
                 written_proteins = set()
                 outhandle = open(protein_outfile , 'w')
                 for record in SeqIO.parse(open(prodigalfile_AA, 'r'), 'fasta'):
@@ -136,7 +136,7 @@ def ortholog_proteins(args):
                             SeqIO.write(record, outhandle, 'fasta')
                 
             else:
-                protein_outfile = os.path.join(checkv_directory,'orthologs',marker + '.faa')
+                protein_outfile = os.path.join(checkv_directory,'orthologs2',marker + '.faa')
                 written_proteins = set()
                 i = 0
                 print(protein_outfile)
@@ -159,9 +159,9 @@ def ortholog_proteins(args):
             Run IQtree
             '''
             if not viralfamily is None:
-                protein_outfile = os.path.join(checkv_directory,'orthologs',marker + '.'  + viralfamily +'.faa')
+                protein_outfile = os.path.join(checkv_directory,'orthologs2',marker + '.'  + viralfamily +'.faa')
             else:
-                protein_outfile = os.path.join(checkv_directory,'orthologs',marker + '.faa')
+                protein_outfile = os.path.join(checkv_directory,'orthologs2',marker + '.faa')
 
             alnfile = protein_outfile.replace('faa','aln')
             
@@ -193,6 +193,7 @@ def ortholog_proteins(args):
                 command = [trimalexecutable,
                         '-in', alnfile,
                         '-phylip',
+                        '-automated1',
                         '-out', phyfile]
                 subprocess.check_call(command)
             except:
@@ -204,12 +205,14 @@ def ortholog_proteins(args):
             # iqtree -s terl.crAss-like.phy -m TEST -nt 24 -safe -bb 1000 -alrt 1000 -redo
             # Best-fit model: VT+F+G4 chosen according to BIC
             # iqtree -s terl.phy -m LG -nt 24
+            
+            
             #try:
             #    iqtree_executable = '/services/tools/iqtree/1.6.8/bin/iqtree'
             #    command = [iqtree_executable,
             #            '-iqtree',
             #            '-s', phyfile,
-            #            '-m', 'LG',
+            #            '-m', 'VT+F+G4',
             #            '-nt','24']
             #    subprocess.check_call(command)
             #except:
@@ -232,11 +235,9 @@ def ortholog_proteins(args):
                     out.write('{}\t{}\t{}\t{}\t{}\n'.format(proteinid,genomeid,cluster,family,VOGclade))
             
         
-        
-
-        
         ### Get all Putative Terminase (large subunit) proteins 
         checkv_directory = args.v
+        checkv_directory = '07_binannotation/checkv/VAMB_bins'
         terl_proteins, terl_genomes = get_terl_proteins(checkv_directory)
         
         ### Load Taxonomy
@@ -251,9 +252,11 @@ def ortholog_proteins(args):
                     family = tax.split(';')[4]
                     genome_taxonomy[genomeid] = [family,VOGclade]
 
-
         write_out_proteins(checkv_directory,terl_proteins,genome_taxonomy,'terl',viralfamily='crAss-like')
+        write_out_proteins(checkv_directory,terl_proteins,genome_taxonomy,'terl')
         make_phylo_Tree(checkv_directory, marker = 'terl',viralfamily='crAss-like')
+        make_phylo_Tree(checkv_directory, marker = 'terl')
+
         write_tree_annotation(checkv_directory,  'terl', terl_genomes, terl_proteins)
 
 

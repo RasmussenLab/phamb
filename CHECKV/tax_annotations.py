@@ -75,6 +75,27 @@ def crass_blast(databasedirectory,executable, proteins, outfile):
 
 
 
+def PLSDB_blast(databasedirectory,executable,genomes,outfile):
+    
+    try:
+        db = '/home/projects/cpr_10006/projects/phamb/tools/plsdb/data/master/2020_01_14.fna'
+        command = [executable,
+                '-task','megablast',
+                '-evalue','0.0001',
+                '-num_threads','19',
+                '-perc_identity','85',
+                '-db',db,
+                '-query',genomes,
+                '-out',outfile,
+                '-outfmt', '6 std qlen slen']
+        subprocess.check_call(command)
+    except:
+        message = 'ERROR: BlastN finished abnormally.'
+        print(message)
+        sys.exit(1)
+
+
+
 ### BlastP against Eukaryotic Viruses 
 
 def herpes_blast(databasedirectory,executable, genomes, outfile):
