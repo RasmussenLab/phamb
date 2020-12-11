@@ -3,14 +3,24 @@ import os
 
 configfile: 'CRISPRCAS/config.yaml'
 
+### These are gonna go into the config file at some Point
+VIRALGENOMES="04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.bins.fna"
+MAGTAXONOMI="07_binannotation/bacteria/nc_gtdbtk_NC/mag_taxonomy.txt"
+VAMBDIR="05_binning/vamb_on_jgi/COPSAC"
+CHECKVDIR="07_binannotation/checkv/VAMB_bins"
+
+THREADS=8
 
 
 ### Read Binids to be parsed
 BINDIR='07_binannotation/bacteria' 
 BINIDS = []
-with open(config.get("checkm_file"),'r') as infile:
+CHECKMFILE = config.get("checkm_file")
+with open(CHECKMFILE,'r') as infile:
     for line in infile:
         line = line.strip().split('\t')[0]
+        if line =='bin':
+            continue
         BINIDS.append(line)
 
 ### Make List of MQNC MAGs
@@ -19,16 +29,14 @@ with open(os.path.join(BINDIR,'MQNC_MAGS.txt'),'w') as out:
         out.write(os.path.join(BINDIR,binid+'.fna')+'\n')
 
 
-VIRALGENOMES="04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.bins.fna"
-CHECKVDIR="07_binannotation/checkv/VAMB_bins"
-THREADS=8
+
 
 rule target: 
     input:
         expand("07_binannotation/bacteria/snakecrisprcasfinder/{binid}.tmp", binid=BINIDS),
         "07_binannotation/bacteria/snakecrisprcasfinder/new.spacers.viralfragment.m6",
         "08_crisprcas/blastn/MAGS.all.virus.m6",
-        "08_crisprcas/fastani/MGXVIR.fastani.txt"
+        "08_crisprcas/fastani/MGXVIR.fastani.txt.gz"
 
 
 ### This one Produces a directory of files
@@ -49,7 +57,7 @@ rule CRISPRCAS:
         touch {output.tmp}
         """
 
-rule blastn:
+rule spacer_blastn:
     input:
         viralbins = VIRALGENOMES
     output:
@@ -63,7 +71,13 @@ rule blastn:
         cat 07_binannotation/bacteria/snakecrisprcasfinder/*/spacers/*fa > 07_binannotation/bacteria/snakecrisprcasfinder/all.spacers.fna
 
         makeblastdb -in {input.viralbins} -dbtype nucl
-        blastn blastn-short -evalue 0.001 -perc_identity 90 -num_threads {threads} -db {input.viralbins} -query 07_binannotation/bacteria/snakecrisprcasfinder/all.spacers.fna -out {output.blastfile} -outfmt 6 std qlen slen
+        blastn blastn-short -evalue 0.001 \
+        -perc_identity 90 \
+        -num_threads {threads} \
+        -db {input.viralbins} \
+        -query 07_binannotation/bacteria/snakecrisprcasfinder/all.spacers.fna \
+        -out {output.blastfile} \
+        -outfmt 6 std qlen slen
         """
 
 ### We also need to Run Both Blastn & FastANI, this does However Require that CheckV Has been RUn 
@@ -90,10 +104,10 @@ rule blastn_viruses:
 
 rule fastani_viruses:
     input:
-        checkvdir = CHECKVDIR
+        checkvdir = CHECKVDIR,
         MAGgenomes_list = os.path.join(BINDIR,'MQNC_MAGS.txt')
     output:
-        VIRgenomes_list = "08_crisprcas/viral_genomes/viral.genomes.files.txt"
+        VIRgenomes_list = "08_crisprcas/viral_genomes/viral.genomes.files.txt",
         fastanifile = "08_crisprcas/fastani/MGXVIR.fastani.txt"
     params:
         VIRgenome_directory = "08_crisprcas/viral_genomes"
@@ -113,3 +127,30 @@ rule fastani_viruses:
         --ql {output.VIRgenomes_list } \
         -o {output.fastanifile}
         """
+
+rule gzip:
+    input:
+        fastanifile = "08_crisprcas/fastani/MGXVIR.fastani.txt"
+    output:
+        fastanifilegz = "08_crisprcas/fastani/MGXVIR.fastani.txt.gz"
+    threads: 1
+    shell:
+        "gzip {input.fastanifile}"
+
+### Here we need to point to a lot of different Files such as MAG taxonomy, VAMB-directory, CheckV output 
+# The remaining files are already produced in the abovee steps
+
+rule MAG_Viral_connections:
+    input:
+        VAMBDIR=VAMBDIR,
+        MAGTAXONOMI = MAGTAXONOMI,
+        CHECKMFILE = CHECKMFILE,
+        CHECKVDIR = CHECKVDIR
+    output:
+        blast_host = "08_crisprcas/crispr_prophage_results/blastn_host_predictions.tsv",
+        fastani_host = "08_crisprcas/crispr_prophage_results/FASTANI_host_predictions.tsv"
+    shell:
+        """
+
+        """
+

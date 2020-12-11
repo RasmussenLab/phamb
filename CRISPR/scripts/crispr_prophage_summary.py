@@ -14,10 +14,12 @@ from collections import Counter
 parser = argparse.ArgumentParser(description='''
     Annotating contigs to filter off possible non viral sequences
    ''')
-parser.add_argument('-i', help='Directory with spacer-blast files')
-parser.add_argument('-o', help='Directory out')
+parser.add_argument('-v', help='VAMB directory ')
+parser.add_argument('-g', help='MAG taxonomy produced by GTDB-TK')
+parser.add_argument('-c', help='CheckV directory')
+parser.add_argument('-m', help='CheckM results for MQ and NC MAGs')
 
-CRISPRCASDIR="08_crisprcas"
+
 
 def get_MAG_overview(args):
     """[Read CheckM file of MQNC MAGs]
@@ -26,7 +28,7 @@ def get_MAG_overview(args):
         args ([type]): [description]
     """
     MAGs = dict()
-    checkm_file = '07_binannotation/bacteria/checkm/HMP2.all.MQNC.MAGS'
+    checkm_file = args.m
     with open(checkm_file,'r') as infile:
         header = infile.readline()
         for line in infile:
@@ -46,7 +48,12 @@ def get_MAG_overview(args):
 def load_MQ_bins(args):
     ### We cannot include Bins that are far from Complete
     medium_quality_bins = set()
-    quality_file = os.path.join('07_binannotation/checkv/VAMB_bins/quality_summary.tsv')
+    quality_file = os.path.join(args.c,'quality_summary.tsv')
+
+    if not os.path.exists(quality_file):
+        print('Have you run CheckV?')
+        sys.exit(1)
+
     with open(quality_file,'r') as infile:
         header = infile.readline().strip().split('\t')
         genome_copies_index = header.index('genome_copies')
@@ -72,17 +79,21 @@ def load_MQ_bins(args):
                 medium_quality_bins.add(binid)
     return  medium_quality_bins
 
-def parse_CRISPR_results(args,MAGs):
+def parse_CRISPR_results(args,MAGs,CONTIG2MAG):
 
     ### Parse blastn 
-    spaceromefile = os.path.join(CRISPRCASDIR,'blastn','new.spacers.viralfragment.m6')
-    crassfile =  os.path.join(args.i, 'crass.653.viralfragment.m6')
+    spaceromefile = "07_binannotation/bacteria/snakecrisprcasfinder/new.spacers.viralfragment.m6"
     for f in [spaceromefile]:
         with open(f,'r') as infile:
             for line in infile:
                 line = line.strip().split()
                 spacername = line[0]
-                MAG = spacername.split(':')[0]
+                contigname = spacername.split(':')[0]
+
+                ### Watch out for Proteein number Suffix added to each contigname!
+                contigname = '_'.join(contigname.split('_')[:-1])
+                MAG = CONTIG2MAG[contigname]
+
                 MAGmotherbin = MAG.split('_')[1]
                 phagebin = line[1]
                 sample = phagebin.split('_')[0]
@@ -102,10 +113,10 @@ def parse_CRISPR_results(args,MAGs):
                         MAGs[MAG][phagemotherbin] = {'spacer':True,'prophage':None,'both':None}
     return MAGs
 
-def parse_FastANI_results(args,MAGs,medium_quality_bins,number_of_5000bp_pieces):
+def parse_FastANI_results(args,MAGs,medium_quality_bins,population_type,number_of_5000bp_pieces):
     
     print('Parsing FastANI hits')
-    prophage_file = os.path.join(CRISPRCASDIR,'fastani','MGXVIR.fastani.txt.gz')
+    prophage_file = os.path.join("08_crisprcas",'fastani','MGXVIR.fastani.txt.gz')
     with gzip.open(prophage_file,'rt') as infile:
         for line in infile:
             line = line.strip().split('\t')
@@ -135,41 +146,6 @@ def parse_FastANI_results(args,MAGs,medium_quality_bins,number_of_5000bp_pieces)
     return MAGs
 
 
-
-def parse_FastANI_results_Darkmatter(args,MAGs,number_of_5000bp_pieces):
-    
-    print('Parsing FastANI hits')
-    prophage_file = os.path.join(args.p,'MGXVIR.fastani.txt.gz')
-    with gzip.open(prophage_file,'rt') as infile:
-        for line in infile:
-            line = line.strip().split('\t')
-            ANI = float(line[2])
-            coverage = (int(line[3])/int(line[4]))*100
-            n = int(line[3])
-            if ANI >= 90 and n >= number_of_5000bp_pieces or coverage >= 75:
-                phagebin = os.path.basename(line[0]).replace('.fna','')
-
-                sample = phagebin.split('_')[0]
-                phagemotherbin = phagebin.split('_')[1]
-                if not str(phagemotherbin) in population_type:
-                    continue
-                ctype = population_type[str(phagemotherbin)]
-                if not ctype == 'Dark-matter':
-                    continue
-
-                MAG = os.path.basename(line[1]).replace('.fna','')
-                bacterial_clusters = MAG.split('_')[1]
-
-                if not phagemotherbin in MAGs[MAG]:
-                    MAGs[MAG][phagemotherbin] = {'spacer':None,'prophage':True,'both':None,'coverage':coverage}
-                else:
-                    if phagemotherbin in MAGs[MAG] and MAGs[MAG][phagemotherbin]['spacer'] is True:
-                        MAGs[MAG][phagemotherbin] = {'spacer':True,'prophage':True,'both':True,'coverage':coverage}
-    return MAGs
-
-
-
-
 def parse_CRISPR_PROPHAGE_hits(args):
     """Function for parsing CRISPR-spacer blast-files
 
@@ -179,12 +155,14 @@ def parse_CRISPR_PROPHAGE_hits(args):
     """
     ### Parse MAG spacers
     _MAG_benchmark = {k:get_MAG_overview(args) for k in range(1,2) }
-    #MAGs = get_MAG_overview(args)
+    
     MAGs_by_sample = get_MAG_overview(args)
+    CONTIG2MAG = contig_to_MAG(args, _MAG_benchmark[0] )
+
 
     ### Read in Viral population types
     population_type = dict()
-    with open('07_binannotation/checkv/VAMB_bins/population_types.tsv','r') as infile:
+    with open(os.path.join(args.c,'population_types.tsv'),'r') as infile:
         for line in infile:
             phagemotherbin, ctype = line.strip().split()
             population_type[phagemotherbin] = ctype
@@ -192,15 +170,12 @@ def parse_CRISPR_PROPHAGE_hits(args):
     medium_quality_bins = load_MQ_bins(args)
     
     for i in _MAG_benchmark:
-        _MAG_benchmark[i] = parse_CRISPR_results(args,_MAG_benchmark[i])
+        _MAG_benchmark[i] = parse_CRISPR_results(args,_MAG_benchmark[i],CONTIG2MAG)
     _MAG_benchmark_darkmatter = _MAG_benchmark.copy()
 
     ### Parse Prophage hits for HQ-Viruses
     for i in _MAG_benchmark:
-        _MAG_benchmark[i] = parse_FastANI_results(args, _MAG_benchmark[i], medium_quality_bins, number_of_5000bp_pieces= i)
-
-    for i in _MAG_benchmark:
-        _MAG_benchmark_darkmatter[i] = parse_FastANI_results_Darkmatter(args,_MAG_benchmark_darkmatter[i],number_of_5000bp_pieces = i)
+        _MAG_benchmark[i] = parse_FastANI_results(args, _MAG_benchmark[i], medium_quality_bins,population_type, number_of_5000bp_pieces= i)
 
     ### Calculate Host-prediction accuracy  
     host_results = {i:None for i in _MAG_benchmark}
@@ -210,10 +185,83 @@ def parse_CRISPR_PROPHAGE_hits(args):
     host_prediction_results = return_host_consistency_table(host_results,prediction_method='fastANI')
     combined_table = np.array(host_prediction_results)
     combined_table = np.concatenate(combined_table,axis=0)
-    fileout = os.path.join(args.o,'crispr_prophage_results','FASTANI_host_predictions.tsv')
+
+    if not os.path.exists( os.path.join("08_crisprcas",'crispr_prophage_results')):
+        os.makedirs(os.path.join('08_crisprcas','crispr_prophage_results'))
+
+    fileout = os.path.join('08_crisprcas','crispr_prophage_results','FASTANI_host_predictions.tsv')
     np.savetxt(fileout, combined_table , delimiter='\t', header='', newline='\n', fmt='%s')
 
-    return population_type,MAGs_by_sample, _MAG_benchmark, _MAG_benchmark_darkmatter
+
+    ### Write results
+    results_directory = os.path.join("08_crisprcas",'crispr_prophage_results')
+
+    if not os.path.exists(results_directory):
+        os.makedirs(results_directory)
+
+    for i in _MAG_benchmark:
+        MAGs = _MAG_benchmark[i]
+        bacterial_genome_decision = {MAG:{'spacer':None,'prophage':None,'both':None} for MAG in MAGs}
+        outfile = os.path.join(results_directory,'MAG_crispr_prophage_summary.'+str(i*5000)+'.txt')
+        with open(outfile,'w') as out:
+            for MAG in MAGs:
+                bacterial_cluster = MAG.split('_')[1]
+                if len(MAGs[MAG]) == 0:
+                    lineout = '\t'.join( [bacterial_cluster,MAG,'NA','NA','NA','NA'])
+                    out.write(lineout+'\n')
+                else:
+                    for phagemotherbin in MAGs[MAG]:
+                        MAG_sample = MAG.split('_')[0]
+
+
+                        spacer = MAGs[MAG][phagemotherbin]['spacer']
+                        prophage =  MAGs[MAG][phagemotherbin]['prophage']
+                        both = MAGs[MAG][phagemotherbin]['both']
+                        if 'coverage' in MAGs[MAG][phagemotherbin]:
+                            coverage = round(MAGs[MAG][phagemotherbin]['coverage'],2)
+                        else:
+                            coverage = 0
+                        if not str(phagemotherbin) in population_type:
+                            continue
+
+                        ctype = population_type[str(phagemotherbin)]
+
+                        if both is True: 
+                            viral_association = 'both'
+                        else:
+                            if spacer is True:
+                                viral_association = 'spacer'
+                            else:
+                                viral_association = 'prophage'
+
+                    
+                        lineout = '\t'.join( [bacterial_cluster,MAG,phagemotherbin,ctype,viral_association, str(coverage)] )
+                        out.write(lineout+'\n')
+
+                        ### Only make decisions based on HQ-ref Viruses
+                        if ctype in ['HQ-ref']:
+                            bacterial_genome_decision[MAG][viral_association] = True
+
+        outfile = os.path.join(results_directory,'MAG_crispr_prophage_decision.'+str(i*5000)+'.txt')
+        with open(outfile,'w') as out:
+            for MAG in bacterial_genome_decision:
+                bacterial_cluster = MAG.split('_')[1]
+                viral_association = 'None'
+                spacer = bacterial_genome_decision[MAG]['spacer']
+                prophage =  bacterial_genome_decision[MAG]['prophage']
+                both = bacterial_genome_decision[MAG]['both']
+
+                if prophage is True and spacer is True:
+                    viral_association = 'both'
+                    lineout = '\t'.join( [bacterial_cluster,MAG,viral_association] )
+                    out.write(lineout+'\n')
+                else:
+                    if prophage is True:
+                        viral_association = 'prophage'
+                    elif spacer is True:
+                        viral_association = 'spacer'
+                    lineout = '\t'.join( [bacterial_cluster,MAG,viral_association] )
+                    out.write(lineout+'\n')
 
 
 
@@ -406,8 +454,6 @@ def return_host_consistency_table(host_taxonomy_predictions,prediction_method):
         predictions = host_taxonomy_predictions[k]
         table = []
 
-
-
         row = [prediction_method+'.'+str(k),'spacer_prophage_consensus']
         for lin in lineage:
             row += [predictions['consensus'][lin]]
@@ -435,209 +481,48 @@ def return_host_consistency_table(host_taxonomy_predictions,prediction_method):
 
 
 
-
-
-    
-
-
-     
-
-
-
-
-
-def write_results(args,_MAG_benchmark,population_type):
-    """[summary]
-
-    Args:
-        args ([type]): [description]
-        MAGs ([type]): [description]
-        MAGs_by_sample ([type]): [description]
-    """
-    results_directory = os.path.join(args.o,'crispr_prophage_results')
-
-    if not os.path.exists(results_directory):
-        os.mkdir(results_directory)
-
-    for i in _MAG_benchmark:
-        MAGs = _MAG_benchmark[i]
-        bacterial_genome_decision = {MAG:{'spacer':None,'prophage':None,'both':None} for MAG in MAGs}
-        outfile = os.path.join(results_directory,'MAG_crispr_prophage_summary.'+str(i*5000)+'.txt')
-        with open(outfile,'w') as out:
-            for MAG in MAGs:
-                bacterial_cluster = MAG.split('_')[1]
-                if len(MAGs[MAG]) == 0:
-                    lineout = '\t'.join( [bacterial_cluster,MAG,'NA','NA','NA','NA'])
-                    out.write(lineout+'\n')
-                else:
-                    for phagemotherbin in MAGs[MAG]:
-                        MAG_sample = MAG.split('_')[0]
-
-
-                        spacer = MAGs[MAG][phagemotherbin]['spacer']
-                        prophage =  MAGs[MAG][phagemotherbin]['prophage']
-                        both = MAGs[MAG][phagemotherbin]['both']
-                        if 'coverage' in MAGs[MAG][phagemotherbin]:
-                            coverage = round(MAGs[MAG][phagemotherbin]['coverage'],2)
-                        else:
-                            coverage = 0
-                        if not str(phagemotherbin) in population_type:
-                            continue
-
-                        ctype = population_type[str(phagemotherbin)]
-
-                        if both is True: 
-                            viral_association = 'both'
-                        else:
-                            if spacer is True:
-                                viral_association = 'spacer'
-                            else:
-                                viral_association = 'prophage'
-
-                    
-                        lineout = '\t'.join( [bacterial_cluster,MAG,phagemotherbin,ctype,viral_association, str(coverage)] )
-                        out.write(lineout+'\n')
-
-                        ### 
-                        if ctype in ['HQ-ref']:
-                            bacterial_genome_decision[MAG][viral_association] = True
-
-        outfile = os.path.join(results_directory,'MAG_crispr_prophage_decision.'+str(i*5000)+'.txt')
-        with open(outfile,'w') as out:
-            for MAG in bacterial_genome_decision:
-                bacterial_cluster = MAG.split('_')[1]
-                viral_association = 'None'
-                spacer = bacterial_genome_decision[MAG]['spacer']
-                prophage =  bacterial_genome_decision[MAG]['prophage']
-                both = bacterial_genome_decision[MAG]['both']
-
-                if prophage is True and spacer is True:
-                    viral_association = 'both'
-                    lineout = '\t'.join( [bacterial_cluster,MAG,viral_association] )
-                    out.write(lineout+'\n')
-                else:
-                    if prophage is True:
-                        viral_association = 'prophage'
-                    elif spacer is True:
-                        viral_association = 'spacer'
-                    lineout = '\t'.join( [bacterial_cluster,MAG,viral_association] )
-                    out.write(lineout+'\n')
-
-
-
-def write_results_darkmatter(args,_MAG_benchmark_darkmatter,population_type):
-    """[summary]
-
-    Args:
-        args ([type]): [description]
-        MAGs ([type]): [description]
-        MAGs_by_sample ([type]): [description]
-    """
-    results_directory = os.path.join(args.o,'crispr_prophage_results')
-
-    if not os.path.exists(results_directory):
-        os.mkdir(results_directory)
-
-    for i in _MAG_benchmark_darkmatter:
-        MAGs = _MAG_benchmark_darkmatter[i]
-        bacterial_genome_decision = {MAG:{'spacer':None,'prophage':None,'both':None} for MAG in MAGs}
-        outfile = os.path.join(results_directory,'MAG_crispr_prophage_summary.darkmatter.'+str(i*5000)+'.txt')
-        with open(outfile,'w') as out:
-            for MAG in MAGs:
-                bacterial_cluster = MAG.split('_')[1]
-                if len(MAGs[MAG]) == 0:
-                    lineout = '\t'.join( [bacterial_cluster,MAG,'NA','NA','NA','NA'])
-                    out.write(lineout+'\n')
-                else:
-                    for phagemotherbin in MAGs[MAG]:
-                        spacer = MAGs[MAG][phagemotherbin]['spacer']
-                        prophage =  MAGs[MAG][phagemotherbin]['prophage']
-                        both = MAGs[MAG][phagemotherbin]['both']
-                        if not str(phagemotherbin) in population_type:
-                            continue
-
-                        if both is True: 
-                            viral_association = 'both'
-                        else:
-                            if spacer is True:
-                                viral_association = 'spacer'
-                            else:
-                                viral_association = 'prophage'
-
-                    
-                        lineout = '\t'.join( [bacterial_cluster,MAG,phagemotherbin,'dark-matter',viral_association] )
-                        out.write(lineout+'\n')
-
-                        ### 
-                        bacterial_genome_decision[MAG][viral_association] = True
-
-        outfile = os.path.join(results_directory,'MAG_crispr_prophage_decision.darkmatter.'+str(i*5000)+'.txt')
-        with open(outfile,'w') as out:
-            for MAG in bacterial_genome_decision:
-                bacterial_cluster = MAG.split('_')[1]
-                viral_association = 'None'
-                spacer = bacterial_genome_decision[MAG]['spacer']
-                prophage =  bacterial_genome_decision[MAG]['prophage']
-                both = bacterial_genome_decision[MAG]['both']
-
-                if prophage is True and spacer is True:
-                    viral_association = 'both'
-                    lineout = '\t'.join( [bacterial_cluster,MAG,viral_association] )
-                    out.write(lineout+'\n')
-                else:
-                    if prophage is True:
-                        viral_association = 'prophage'
-                    elif spacer is True:
-                        viral_association = 'spacer'
-                    lineout = '\t'.join( [bacterial_cluster,MAG,viral_association] )
-                    out.write(lineout+'\n')
-
-
-
-
 def contig_to_MAG(args,MAGobject):
     
-    clusterfile = '05_binning/vamb_on_jgi_v3/HMP2/clusters.tsv'
-    contig_to_MAG = dict()
+    clusterfile = args.v
+    CONTIG2MAG = dict()
     with open(clusterfile,'r') as infile:
         for line in infile:
             cluster, contig = line.strip().split()
             sample = contig.split('_')[0]
             MAG = sample + '_' + cluster
-            if not MAG in _MAG_benchmark[0]:
+            if not MAG in MAGobject[0]:
                 continue
-            contig_to_MAG[contig] = MAG
-    return contig_to_MAG
+            CONTIG2MAG[contig] = MAG
+    return CONTIG2MAG
 
 
 def parse_blastn_results(args):
     '''
-    1. Annotate integrated phages similar to Nature Paper: https://www.nature.com/articles/s41587-020-0718-6#Sec9 
+    Annotate integrated phages similar to Nature Paper: https://www.nature.com/articles/s41587-020-0718-6#Sec9 
     '''
 
-    
     phagesize_ratios = [1,1.5,2]
-    _MAG_benchmark_contigs = {k:get_MAG_overview(args) for k in range(len(phagesize_ratios)) }
+    _MAG_benchmark_blastn = {k:get_MAG_overview(args) for k in range(len(phagesize_ratios)) }
     
 
     ### Read in Viral population types
     population_type = dict()
-    with open('07_binannotation/checkv/VAMB_bins/population_types.tsv','r') as infile:
+    with open(os.path.join(args.c,'population_types.tsv'),'r') as infile:
         for line in infile:
             phagemotherbin, ctype = line.strip().split()
             population_type[phagemotherbin] = ctype
     
     ### Parse cluster-file
-    contig_to_MAG = contig_to_MAG(args, _MAG_benchmark_contigs[0] )
+    CONTIG2MAG = contig_to_MAG(args, _MAG_benchmark_blastn[0] )
     medium_quality_bins = load_MQ_bins(args)
     
-    for i in range(len(_MAG_benchmark_contigs)):
-        _MAG_benchmark_contigs[i] = parse_CRISPR_results(args,_MAG_benchmark_contigs[i])
+    for i in range(len(_MAG_benchmark_blastn)):
+        _MAG_benchmark_blastn[i] = parse_CRISPR_results(args,_MAG_benchmark_blastn[i],CONTIG2MAG)
 
-    blastn_file = '13_novoclusters/blastn/MAGS.all.virus.m6.gz'
+    blastn_file = os.path.join('08_crisprcas','blastn','MAGS.all.virus.m6')
     prophage_hits = dict()
 
-    for i in range(len(_MAG_benchmark_contigs)):
+    for i in range(len(_MAG_benchmark_blastn)):
         with gzip.open(blastn_file,'rt') as infile:
             for line in infile:
                 line = line.strip().split('\t')
@@ -650,44 +535,44 @@ def parse_blastn_results(args):
                 phagebin_length = int(line[-2])
                 
                 size_ratio = MAG_contig_length/phagebin_length
-                if alignment > 500 and size_ratio > phagesize_ratios[i]:
-                    MAG = contig_to_MAG[MAG_contig]
+                if alignment >= 500 and size_ratio > phagesize_ratios[i]:
+                    MAG = CONTIG2MAG[MAG_contig]
                     phagemotherbin = phagebin.split('_')[1]
 
                     if not phagebin in medium_quality_bins:
                         continue
 
-                    if not phagemotherbin in _MAG_benchmark_contigs[i][MAG]:
-                        _MAG_benchmark_contigs[i][MAG][phagemotherbin] = {'spacer':None,'prophage':True,'both':None}
+                    if not phagemotherbin in _MAG_benchmark_blastn[i][MAG]:
+                        _MAG_benchmark_blastn[i][MAG][phagemotherbin] = {'spacer':None,'prophage':True,'both':None}
                     else:
-                        if phagemotherbin in _MAG_benchmark_contigs[i][MAG] and _MAG_benchmark_contigs[i][MAG][phagemotherbin]['spacer'] is True:
-                            _MAG_benchmark_contigs[i][MAG][phagemotherbin] = {'spacer':True,'prophage':True,'both':True}
+                        if phagemotherbin in _MAG_benchmark_blastn[i][MAG] and _MAG_benchmark_blastn[i][MAG][phagemotherbin]['spacer'] is True:
+                            _MAG_benchmark_blastn[i][MAG][phagemotherbin] = {'spacer':True,'prophage':True,'both':True}
 
     ### Calculate Host-prediction accuracy     
-    contig_host_results = {i:None for i in _MAG_benchmark_contigs}
-    for i in _MAG_benchmark_contigs:
-        contig_host_results[i] =  evaluate_host_consistency(_MAG_benchmark_contigs[i]) 
+    contig_host_results = {i:None for i in _MAG_benchmark_blastn}
+    for i in _MAG_benchmark_blastn:
+        contig_host_results[i] =  evaluate_host_consistency(_MAG_benchmark_blastn[i]) 
 
     host_prediction_results = return_host_consistency_table(contig_host_results,prediction_method='blastn')
     combined_table = np.array(host_prediction_results)
     combined_table = np.concatenate(combined_table,axis=0)
-    fileout = os.path.join(args.o,'crispr_prophage_results','blastn_host_predictions.tsv')
+    fileout = os.path.join('08_crisprcas','crispr_prophage_results','blastn_host_predictions.tsv')
     np.savetxt(fileout, combined_table , delimiter='\t', header='', newline='\n', fmt='%s')
 
 
-    for i in range(len(_MAG_benchmark_contigs)):
+    for i in range(len(_MAG_benchmark_blastn)):
 
         ratioid = 'ratio_' + str(phagesize_ratios[i]) 
-        outfile = os.path.join(args.o,'crispr_prophage_results','MAG_crispr_prophage_summary.' + ratioid + '.blastn.txt')
-        bacterial_genome_decision_contig = {MAG:{'spacer':None,'prophage':None,'both':None} for MAG in _MAG_benchmark_contigs[i]}
+        outfile = os.path.join('08_crisprcas','crispr_prophage_results','MAG_crispr_prophage_summary.' + ratioid + '.blastn.txt')
+        bacterial_genome_decision_contig = {MAG:{'spacer':None,'prophage':None,'both':None} for MAG in _MAG_benchmark_blastn[i]}
         with open(outfile,'w') as out:
-            for MAG in _MAG_benchmark_contigs[i]:
+            for MAG in _MAG_benchmark_blastn[i]:
                 bacterial_cluster = MAG.split('_')[1]
-                for phagemotherbin in _MAG_benchmark_contigs[i][MAG]:
+                for phagemotherbin in _MAG_benchmark_blastn[i][MAG]:
                     MAG_sample = MAG.split('_')[0]
-                    spacer = _MAG_benchmark_contigs[i][MAG][phagemotherbin]['spacer']
-                    prophage =  _MAG_benchmark_contigs[i][MAG][phagemotherbin]['prophage']
-                    both = _MAG_benchmark_contigs[i][MAG][phagemotherbin]['both']
+                    spacer = _MAG_benchmark_blastn[i][MAG][phagemotherbin]['spacer']
+                    prophage =  _MAG_benchmark_blastn[i][MAG][phagemotherbin]['prophage']
+                    both = _MAG_benchmark_blastn[i][MAG][phagemotherbin]['both']
 
                     if not str(phagemotherbin) in population_type:
                         continue
@@ -710,7 +595,7 @@ def parse_blastn_results(args):
                         bacterial_genome_decision_contig[MAG][viral_association] = True
 
 
-        outfile = os.path.join(args.o,'crispr_prophage_results','MAG_crispr_prophage_decision.' + ratioid + '.blastn.txt')
+        outfile = os.path.join('08_crisprcas','crispr_prophage_results','MAG_crispr_prophage_decision.' + ratioid + '.blastn.txt')
         with open(outfile,'w') as out:
             for MAG in bacterial_genome_decision_contig:
                 bacterial_cluster = MAG.split('_')[1]
@@ -732,27 +617,13 @@ def parse_blastn_results(args):
                     out.write(lineout+'\n')
 
 
-
-
-
-
-
-
-
-
-class Args:
-    def __init__(self,p,i,o):
-        self.p =  p
-        self.i =  i
-        self.o = o
-
-    
-
-args = Args('13_novoclusters/MGXVIR_fastani','07_binannotation/bacteria/crisprcasfinder','13_novoclusters')
-
-
 if __name__ == "__main__":
     args = parser.parse_args()
-    population_type,MAGs_by_sample, _MAG_benchmark, _MAG_benchmark_darkmatter = parse_CRISPR_PROPHAGE_hits(args)
-    write_results(args,_MAG_benchmark,population_type)
-    write_results_darkmatter(args,_MAG_benchmark_darkmatter, population_type)
+
+    ### Parsing Blastn results
+    parse_blastn_results(args)
+
+    ### Parsing Fastani results
+
+
+
