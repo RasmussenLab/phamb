@@ -1,0 +1,9 @@
+{
+   "configfile": "config.json",
+   "project": "cpr_10006",
+   "sample_file": "test_samples.txt",
+   "tmpdir": "/home/projects/cpr_10006/scratch/joacj/",
+   "contig_suffix": ".flt.fna",
+   "MICOMPLETEDB": "/home/projects/cpr_10006/projects/phamb/databases/miComplete/Bact105.hmm",
+   "VOGDB":"/home/projects/cpr_10006/projects/phamb/databases/VOG/vog_hmms/AllVOG.hmm"
+}
