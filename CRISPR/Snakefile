@@ -1,0 +1,115 @@
+#!/usr/bin/env python
+import os   
+
+configfile: 'CRISPRCAS/config.yaml'
+
+
+
+### Read Binids to be parsed
+BINDIR='07_binannotation/bacteria' 
+BINIDS = []
+with open(config.get("checkm_file"),'r') as infile:
+    for line in infile:
+        line = line.strip().split('\t')[0]
+        BINIDS.append(line)
+
+### Make List of MQNC MAGs
+with open(os.path.join(BINDIR,'MQNC_MAGS.txt'),'w') as out:
+    for binid in BINIDS:
+        out.write(os.path.join(BINDIR,binid+'.fna')+'\n')
+
+
+VIRALGENOMES="04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.bins.fna"
+CHECKVDIR="07_binannotation/checkv/VAMB_bins"
+THREADS=8
+
+rule target: 
+    input:
+        expand("07_binannotation/bacteria/snakecrisprcasfinder/{binid}.tmp", binid=BINIDS),
+        "07_binannotation/bacteria/snakecrisprcasfinder/new.spacers.viralfragment.m6",
+        "08_crisprcas/blastn/MAGS.all.virus.m6",
+        "08_crisprcas/fastani/MGXVIR.fastani.txt"
+
+
+### This one Produces a directory of files
+rule CRISPRCAS:
+    input:
+        genome = "07_binannotation/bacteria/{binid}.fna"
+    output:
+        tmp = temp( "07_binannotation/bacteria/snakecrisprcasfinder/{binid}.tmp" )
+    params:
+        outdir = "07_binannotation/bacteria/snakecrisprcasfinder/{binid}"
+    threads: 1
+    conda:
+         "envs/cctyper.yaml"
+    shell:
+        ### cctyper wants  to make the output directory, so we need to avoid Snakemake making the file by making a tmp output file
+        """
+        cctyper {input.genome} {params.outdir} --prodigal meta 
+        touch {output.tmp}
+        """
+
+rule blastn:
+    input:
+        viralbins = VIRALGENOMES
+    output:
+        blastfile = "07_binannotation/bacteria/snakecrisprcasfinder/new.spacers.viralfragment.m6"
+    threads: THREADS
+    envmodules:
+        "perl/5.24.0",
+        "ncbi-blast/2.8.1+"
+    shell:
+        """
+        cat 07_binannotation/bacteria/snakecrisprcasfinder/*/spacers/*fa > 07_binannotation/bacteria/snakecrisprcasfinder/all.spacers.fna
+
+        makeblastdb -in {input.viralbins} -dbtype nucl
+        blastn blastn-short -evalue 0.001 -perc_identity 90 -num_threads {threads} -db {input.viralbins} -query 07_binannotation/bacteria/snakecrisprcasfinder/all.spacers.fna -out {output.blastfile} -outfmt 6 std qlen slen
+        """
+
+### We also need to Run Both Blastn & FastANI, this does However Require that CheckV Has been RUn 
+
+rule blastn_viruses:
+    input:
+        checkv_viruses = os.path.join(CHECKVDIR,'cleaned_contigs.fna')
+        MAGgenomes_list = os.path.join(BINDIR,'MQNC_MAGS.txt')
+    output:
+        blastfile = "08_crisprcas/blastn/MAGS.all.virus.m6"
+        MAGgenomes = temp("07_binannotation/bacteria/MQNC_MAGs.fna")
+    params:
+        blastparams = "-task megablast -evalue 0.001 -perc_identity 90"
+    threads: THREADS
+    envmodules:
+        "perl/5.24.0",
+        "ncbi-blast/2.8.1+"
+    shell:
+        """
+        xargs < {input.MAGgenomes_list} cat > {output.MAGgenomes}
+        makeblastdb -in {output.MAGgenomes} -dbtype nucl
+        blastn {params.blastparams} -num_threads {threads} -db {output.MAGgenomes} -query {input.checkv_viruses} -out {output.blastfile} -outfmt 6 std qlen slen
+        """
+
+rule fastani_viruses:
+    input:
+        checkvdir = CHECKVDIR
+        MAGgenomes_list = os.path.join(BINDIR,'MQNC_MAGS.txt')
+    output:
+        VIRgenomes_list = "08_crisprcas/viral_genomes/viral.genomes.files.txt"
+        fastanifile = "08_crisprcas/fastani/MGXVIR.fastani.txt"
+    params:
+        VIRgenome_directory = "08_crisprcas/viral_genomes"
+    threads: THREADS
+    envmodules:
+        "fastani/1.1"
+    shell:
+        """
+        echo "Writing Genomes to seperate files"
+        python CRISPRCAS/scripts/write_viruses.py -i {input.checkvdir} -o {params.VIRgenome_directory}
+
+        echo "Starting FastaANI"
+        fastANI -t {threads} \
+        --fragLen 5000 \
+        --minFrag 1 \
+        --rl {input.MAGgenomes_list} \
+        --ql {output.VIRgenomes_list } \
+        -o {output.fastanifile}
+        """

@@ -14,6 +14,7 @@ parser = argparse.ArgumentParser(description='''
 parser.add_argument('-i',help='CheckV results directory')
 parser.add_argument('-o',help='Out Directory for .fna files')
 
+
 def write_all_viral_bins(args):
     '''
     Parse cleaned_contiggs.fna and write bins to .fna
@@ -54,7 +55,7 @@ def write_all_viral_bins(args):
         os.mkdir(args.o)
 
     directory_out = args.o
-    viral_bins_file = os.path.join(directory_out,'all.viral.genomes.txt')
+    viral_bins_file = os.path.join(directory_out,'viral.genomes.files.txt')
     with open(viral_bins_file,'w') as outfile:
             for motherbin in bins_dict:
                     clusterdirectory = os.path.join(args.o,motherbin)
@@ -67,8 +68,3 @@ def write_all_viral_bins(args):
                                         record = bins_dict[motherbin][bin]
                                         SeqIO.write(record, outhandle, 'fasta')
                             outfile.write(binfile+'\n')
-
-
-if __name__ == "__main__":
-    args = parser.parse_args()
-    write_all_viral_bins(args)
