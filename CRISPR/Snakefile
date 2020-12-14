@@ -9,7 +9,7 @@ MAGTAXONOMI="07_binannotation/bacteria/nc_gtdbtk_NC/mag_taxonomy.txt"
 VAMBDIR="05_binning/vamb_on_jgi/COPSAC"
 CHECKVDIR="07_binannotation/checkv/VAMB_bins"
 
-THREADS=8
+THREADS=20
 
 
 ### Read Binids to be parsed
@@ -28,9 +28,6 @@ with open(os.path.join(BINDIR,'MQNC_MAGS.txt'),'w') as out:
     for binid in BINIDS:
         out.write(os.path.join(BINDIR,binid+'.fna')+'\n')
 
-
-
-
 rule target: 
     input:
         expand("07_binannotation/bacteria/snakecrisprcasfinder/{binid}.tmp", binid=BINIDS),
@@ -44,7 +41,7 @@ rule CRISPRCAS:
     input:
         genome = "07_binannotation/bacteria/{binid}.fna"
     output:
-        tmp = temp( "07_binannotation/bacteria/snakecrisprcasfinder/{binid}.tmp" )
+        tmp =  "07_binannotation/bacteria/snakecrisprcasfinder/{binid}.tmp"
     params:
         outdir = "07_binannotation/bacteria/snakecrisprcasfinder/{binid}"
     threads: 1
@@ -71,23 +68,23 @@ rule spacer_blastn:
         cat 07_binannotation/bacteria/snakecrisprcasfinder/*/spacers/*fa > 07_binannotation/bacteria/snakecrisprcasfinder/all.spacers.fna
 
         makeblastdb -in {input.viralbins} -dbtype nucl
-        blastn blastn-short -evalue 0.001 \
+        blastn -task blastn-short -evalue 0.001 \
         -perc_identity 90 \
         -num_threads {threads} \
         -db {input.viralbins} \
         -query 07_binannotation/bacteria/snakecrisprcasfinder/all.spacers.fna \
         -out {output.blastfile} \
-        -outfmt 6 std qlen slen
+        -outfmt 6 'std qlen slen'
         """
 
 ### We also need to Run Both Blastn & FastANI, this does However Require that CheckV Has been RUn 
 
 rule blastn_viruses:
     input:
-        checkv_viruses = os.path.join(CHECKVDIR,'cleaned_contigs.fna')
+        checkv_viruses = os.path.join(CHECKVDIR,'cleaned_contigs.fna'),
         MAGgenomes_list = os.path.join(BINDIR,'MQNC_MAGS.txt')
     output:
-        blastfile = "08_crisprcas/blastn/MAGS.all.virus.m6"
+        blastfile = "08_crisprcas/blastn/MAGS.all.virus.m6",
         MAGgenomes = temp("07_binannotation/bacteria/MQNC_MAGs.fna")
     params:
         blastparams = "-task megablast -evalue 0.001 -perc_identity 90"
@@ -99,7 +96,11 @@ rule blastn_viruses:
         """
         xargs < {input.MAGgenomes_list} cat > {output.MAGgenomes}
         makeblastdb -in {output.MAGgenomes} -dbtype nucl
-        blastn {params.blastparams} -num_threads {threads} -db {output.MAGgenomes} -query {input.checkv_viruses} -out {output.blastfile} -outfmt 6 std qlen slen
+        blastn {params.blastparams} -num_threads {threads} \
+        -db {output.MAGgenomes} \
+        -query {input.checkv_viruses} \
+        -out {output.blastfile} \
+        -outfmt 6 'std qlen slen'
         """
 
 rule fastani_viruses:
