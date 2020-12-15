@@ -1,0 +1,6 @@
+name: python
+channels:
+   - bioconda
+   - conda-forge
+dependencies:
+   - python=3.8
