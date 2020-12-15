@@ -96,7 +96,7 @@ rule DeepVirFinder:
         walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
     threads: 1
     conda:
-        "envs/dvf.yaml"
+        "MAG_annotation/envs/dvf.yaml"
     log:
         "log/DVF/{sample}.dvf.log"
     shell:
@@ -112,7 +112,7 @@ rule summarise_annotations:
     output:
         outdir = directory( "04_snakeanno/annotation_summaries" )
     conda:
-        "envs/python38.yaml"
+        "MAG_annotation/envs/python38.yaml"
     shell:
         """
         python scripts/parse_annotation.py -c {input.clusterfile} \
