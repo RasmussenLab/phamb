@@ -43,12 +43,12 @@ def write_all_viral_bins(args):
         motherbin = recordname.split('_')[1]
         bin = recordname
         if motherbin in bins_representative:
-                if bin in bins_representative[motherbin]:
-                        if not motherbin in bins_dict:
-                            bins_dict[motherbin] = {}
-                            bins_dict[motherbin][bin] = record
-                        else:
-                            bins_dict[motherbin][bin] = record
+            if bin in bins_representative[motherbin]:
+                if not motherbin in bins_dict:
+                    bins_dict[motherbin] = {}
+                    bins_dict[motherbin][bin] = record
+                else:
+                    bins_dict[motherbin][bin] = record
 
     ### Write out Entries to seperate .fna files
     if not os.path.exists(args.o):
@@ -68,3 +68,7 @@ def write_all_viral_bins(args):
                                         record = bins_dict[motherbin][bin]
                                         SeqIO.write(record, outhandle, 'fasta')
                             outfile.write(binfile+'\n')
+
+if __name__ == "__main__":
+    args = parser.parse_args()
+    write_all_viral_bins(args)
