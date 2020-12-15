@@ -3,11 +3,11 @@
 configfile: 'config.yaml'
 
 
-### Local Databases​
+### Config
 MICOMPLETEDB = config.get("MICOMPLETEDB")
 VOGDB= config.get("VOGDB")
 SAMPLES = config.get("sample_file_path")
-PROJECT = config.get("cluster_project")
+PROJECT = config.get("cluster_project") # Who's paying for running this Flow on a Server-cluster?
 TMP_DIR = config.get("tmpdir")
 CONTIGSUFFIX = config.get("contig_suffix")
 THREADS = config.get("threads_ppn")
@@ -107,7 +107,8 @@ rule summarise_annotations:
     input:
         clusterfike = os.path.join(VAMBDIR,'clusters.tsv'),
         sample_table = SAMPLES,
-        annotation_directory = "04_snakeanno"
+        annotation_directory = "04_snakeanno",
+        combined_assembly = ASSEMBLY
     output:
         outdir = directory( "04_snakeanno/annotation_summaries" )
     conda:
@@ -118,6 +119,7 @@ rule summarise_annotations:
         -s {input.sample_table} \
         -a {input.annotation_directory} \
         -o {output.outdir} \
-        --decontaminate \
-        --fasta 
+        --fasta {input.combined_assembly \
+        --decontaminate
+
         """

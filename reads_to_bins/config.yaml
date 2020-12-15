@@ -1,0 +1,9 @@
+SAMPLETABLE:  'sample_table.txt'
+LOGFILE:  'pipeline.log'
+cluster_project:  "cpr_10006"
+FASTQDIR:  ''
+
+QC_HOST_DATABASE:   '/home/projects/cpr_10006/data/Databases/Homo_sapiens.GRCh38_Bowtie2'
+QC_TRIMMOMATIC_PARAMS:    'ILLUMINACLIP:/services/tools/trimmomatic/0.36/adapters/NexteraPE-PE.fa:2:30:10 LEADING:20  TRAILING:20  SLIDINGWINDOW:4:20  MINLEN:100'
+TMP_DIR:  'tmp'
+threads_ppn:  '30'
