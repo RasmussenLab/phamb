@@ -77,23 +77,11 @@ def parse_arguments():
                           required=False,
                           default=None,
                           help='Same fasta used as input to VAMB')
-    
 
     (args, extra_args) = parser.parse_known_args()
 
     return args
 
-
-
-
-
-#   class testing:
-#          def __init__(self,outdir):
-#              self.outdir = outdir
-#              self.cluster_file = '05_binning/vamb_on_jgi_v3/HMP2/clusters.tsv'
-#              self.fasta = 'combined_assemblies/HMP2.fna'
-#      
-#   args = testing('04_annotation/annotation_summaries')
 
 
 class bin_annotation:
@@ -615,7 +603,7 @@ def RF_decontaminate(args):
         sys.exit(1)
 
     print('Loading Model and annotation table')
-    trained_model = joblib.load('/home/projects/cpr_10006/projects/phamb/RFmodel/RF_model.sav')
+    trained_model = joblib.load('dbs/RF_model.sav')
     _vambbins = pd.read_csv(table_file,sep='\t')
     _subset = _vambbins[['binsize','nhallm','nVOGs','cluster_DVF_score']]
     eval_predictions = trained_model.predict(_subset)

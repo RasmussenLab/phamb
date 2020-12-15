@@ -61,6 +61,7 @@ rule spacer_blastn:
         blastfile = "07_binannotation/bacteria/snakecrisprcasfinder/new.spacers.viralfragment.m6"
     threads: THREADS
     envmodules:
+        "tools",
         "perl/5.24.0",
         "ncbi-blast/2.8.1+"
     shell:
@@ -74,7 +75,7 @@ rule spacer_blastn:
         -db {input.viralbins} \
         -query 07_binannotation/bacteria/snakecrisprcasfinder/all.spacers.fna \
         -out {output.blastfile} \
-        -outfmt 6 'std qlen slen'
+        -outfmt '6 std qlen slen'
         """
 
 ### We also need to Run Both Blastn & FastANI, this does However Require that CheckV Has been RUn 
@@ -84,48 +85,63 @@ rule blastn_viruses:
         checkv_viruses = os.path.join(CHECKVDIR,'cleaned_contigs.fna'),
         MAGgenomes_list = os.path.join(BINDIR,'MQNC_MAGS.txt')
     output:
-        blastfile = "08_crisprcas/blastn/MAGS.all.virus.m6",
-        MAGgenomes = temp("07_binannotation/bacteria/MQNC_MAGs.fna")
+        blastfile = "08_crisprcas/blastn/MAGS.all.virus.m6"
     params:
+        MAGgenomes = "07_binannotation/bacteria/MQNC_MAGs.fna",
         blastparams = "-task megablast -evalue 0.001 -perc_identity 90"
     threads: THREADS
     envmodules:
+        "tools",
         "perl/5.24.0",
         "ncbi-blast/2.8.1+"
     shell:
         """
-        xargs < {input.MAGgenomes_list} cat > {output.MAGgenomes}
-        makeblastdb -in {output.MAGgenomes} -dbtype nucl
+        xargs < {input.MAGgenomes_list} cat > {params.MAGgenomes}
+        makeblastdb -in {params.MAGgenomes} -dbtype nucl
+        
         blastn {params.blastparams} -num_threads {threads} \
-        -db {output.MAGgenomes} \
+        -db {params.MAGgenomes} \
         -query {input.checkv_viruses} \
         -out {output.blastfile} \
-        -outfmt 6 'std qlen slen'
+        -outfmt '6 std qlen slen'
+
+        rm {params.MAGgenomes}
+        """
+
+rule write_viruses:
+    input:
+        checkvdir = CHECKVDIR
+    output:
+        VIRgenome_directory = directory( "08_crisprcas/viral_genomes" ),
+        VIRgenomes_list = "08_crisprcas/viral_genomes/viral.genomes.files.txt"
+    shell:
+        """
+        echo "Writing Genomes to seperate files"
+        python CRISPRCAS/scripts/write_viruses.py -i {input.checkvdir} -o {output.VIRgenome_directory}
+
         """
 
 rule fastani_viruses:
     input:
         checkvdir = CHECKVDIR,
-        MAGgenomes_list = os.path.join(BINDIR,'MQNC_MAGS.txt')
+        MAGgenomes_list = os.path.join(BINDIR,'MQNC_MAGS.txt'),
+        VIRgenomes_list = "08_crisprcas/viral_genomes/viral.genomes.files.txt"
     output:
-        VIRgenomes_list = "08_crisprcas/viral_genomes/viral.genomes.files.txt",
         fastanifile = "08_crisprcas/fastani/MGXVIR.fastani.txt"
     params:
         VIRgenome_directory = "08_crisprcas/viral_genomes"
     threads: THREADS
     envmodules:
+        "tools",
         "fastani/1.1"
     shell:
         """
-        echo "Writing Genomes to seperate files"
-        python CRISPRCAS/scripts/write_viruses.py -i {input.checkvdir} -o {params.VIRgenome_directory}
-
         echo "Starting FastaANI"
         fastANI -t {threads} \
         --fragLen 5000 \
         --minFrag 1 \
         --rl {input.MAGgenomes_list} \
-        --ql {output.VIRgenomes_list } \
+        --ql {input.VIRgenomes_list} \
         -o {output.fastanifile}
         """
 

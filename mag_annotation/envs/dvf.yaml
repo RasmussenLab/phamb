@@ -1,0 +1,11 @@
+name: dvf
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - python=3.6
+  - numpy
+  - theano
+  - keras
+  - scikit-learn
+  - Biopython
