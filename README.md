@@ -19,7 +19,11 @@ A series of pipeline steps that runs the following on a metagenomic dataset of c
 - Binning using VAMB 
 
 Pipeline options ara available in config.
-Most necessary requirements are packed into Conda-environments. 
+Most necessary requirements are packed into Conda-environments, some are not currently.
+
+```
+snakemake -s crispr/Snakefile -j --use-conda --use-envmodules
+```
 
 
 ## MAG annotation 
