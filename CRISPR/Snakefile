@@ -159,15 +159,17 @@ rule gzip:
 
 rule MAG_Viral_connections:
     input:
-        VAMBDIR=VAMBDIR,
-        MAGTAXONOMI = MAGTAXONOMI,
-        CHECKMFILE = CHECKMFILE,
-        CHECKVDIR = CHECKVDIR
+        fastani= "08_crisprcas/fastani/MGXVIR.fastani.txt.gz",
+        blastfile = "08_crisprcas/blastn/MAGS.all.virus.m6"
     output:
         blast_host = "08_crisprcas/crispr_prophage_results/blastn_host_predictions.tsv",
         fastani_host = "08_crisprcas/crispr_prophage_results/FASTANI_host_predictions.tsv"
+    params:
+        VAMBDIR=VAMBDIR,
+        CHECKVDIR = CHECKVDIR,
+        MAGTAXONOMI = os.path.join('07_binannotation/bacteria/gtdbtk','mag_taxonomy.txt'),
     shell:
         """
-
+        python CRISPR/scripts/crispr_prophage_summary.py -c {params.CHECKVDIR} -g {params.MAGTAXONOMI} -v {}
         """
 

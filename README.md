@@ -1,6 +1,16 @@
 # phamb
 A Phage discovery approach through binning of Metagenomic derived contigs 
 
+## Prerequisites - Snakemake 
+
+In order to run most of it, you need conda installed in order to install snakemake.
+
+```
+conda install -n snakemake snakemake pygraphviz python=3.8
+
+```
+
+
 ## reads to bins - Snakemake pipeline 
 A series of pipeline steps that runs the following on a metagenomic dataset of choice
 - QC

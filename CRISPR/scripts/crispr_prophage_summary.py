@@ -15,9 +15,8 @@ parser = argparse.ArgumentParser(description='''
     Annotating contigs to filter off possible non viral sequences
    ''')
 parser.add_argument('-v', help='VAMB directory ')
-parser.add_argument('-g', help='MAG taxonomy produced by GTDB-TK')
+parser.add_argument('-g', help='GTDB-TK taxonomy file')
 parser.add_argument('-c', help='CheckV directory')
-parser.add_argument('-m', help='CheckM results for MQ and NC MAGs')
 
 
 
@@ -28,19 +27,12 @@ def get_MAG_overview(args):
         args ([type]): [description]
     """
     MAGs = dict()
-    checkm_file = args.m
+    checkm_file = '07_binannotation/bacteria/MQNC_MAGS.txt'
     with open(checkm_file,'r') as infile:
-        header = infile.readline()
         for line in infile:
-            line = line.strip().split('\t')
-            genomeid = line[0]
-            motherbin = genomeid.split('_')[1]
-            completeness = float(line[-3])
-            qual = None
-            if completeness >= 90:
-                qual = 'HQ'
-            else:
-                qual = 'MQ'
+            line = line.strip()
+            genomeid = os.path.basename(line)
+            genomeid = genomeid.replace('.fna','')
             MAGs[genomeid] = dict()
 
     return MAGs
@@ -270,7 +262,7 @@ def load_MAG_taxonomy():
     GTDB-TK annotation of NC MAGs.
     '''
 
-    gtdb_file = '/home/projects/cpr_10006/projects/phamb/HMP2/10_abundances/VAMBV3.MAGmotherbin.tax.txt'
+    gtdb_file = args.g
     lineage = ['superkingdom','phylum','class','order','family','genus','species']
     #dlineage = {lin:None for lin in lineage}
 
@@ -280,7 +272,7 @@ def load_MAG_taxonomy():
         header = infile.readline()
         for line in infile:
             line = line.strip().split('\t')
-            motherbin = line[0]
+            motherbin = line[0].split('_')[1]
             if motherbin in parsed_motherbins:
                 continue
             parsed_motherbins.add(motherbin)
