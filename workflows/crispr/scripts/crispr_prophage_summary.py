@@ -1,6 +1,6 @@
 #!/bin/python
 
-
+import sys
 import os
 import argparse
 import gzip
@@ -139,6 +139,9 @@ def evaluate_host_consistency(_MAG_benchmark):
             continue
 
         MAG_motherbin = MAG.split('_')[1]
+
+        if not MAG_motherbin in MAG_tax:
+            continue
         MAG_lineage = MAG_tax[MAG_motherbin]
 
         for phage in mag_annotations[MAG]:
@@ -296,7 +299,7 @@ def contig_to_MAG(args,MAGobject):
             cluster, contig = line.strip().split()
             sample = contig.split('_')[0]
             MAG = sample + '_' + cluster
-            if not MAG in MAGobject[0]:
+            if not MAG in MAGobject:
                 continue
             CONTIG2MAG[contig] = MAG
     return CONTIG2MAG
@@ -385,7 +388,7 @@ def parse_CRISPR_PROPHAGE_hits(args):
     _MAG_benchmark = {k:get_MAG_overview(args) for k in range(1,2) }
     
     MAGs_by_sample = get_MAG_overview(args)
-    CONTIG2MAG = contig_to_MAG(args, _MAG_benchmark[0] )
+    CONTIG2MAG = contig_to_MAG(args, _MAG_benchmark[1] )
 
 
     ### Read in Viral population types
@@ -517,10 +520,9 @@ def parse_CRISPR_PROPHAGE_hits_blastn(args):
     for i in range(len(_MAG_benchmark_blastn)):
         _MAG_benchmark_blastn[i] = parse_CRISPR_results(args,_MAG_benchmark_blastn[i],CONTIG2MAG)
 
-    blastn_file = os.path.join('08_crisprcas','blastn','MAGS.all.virus.m6')
-    prophage_hits = dict()
+    blastn_file = os.path.join('08_crisprcas','blastn','MAGS.all.virus.m6.gz')
 
-    if os.path.exist(blastn_file):
+    if os.path.exists(blastn_file):
         for i in range(len(_MAG_benchmark_blastn)):
             with gzip.open(blastn_file,'rt') as infile:
                 for line in infile:
@@ -621,6 +623,9 @@ def parse_CRISPR_PROPHAGE_hits_blastn(args):
 
 if __name__ == "__main__":
     args = parser.parse_args()
+
+    if not os.path.exists('08_crisprcas/crispr_prophage_results'):
+        os.makedirs('08_crisprcas/crispr_prophage_results')
 
     ### Parsing results with alignments based on Blastn results
     parse_CRISPR_PROPHAGE_hits_blastn(args)

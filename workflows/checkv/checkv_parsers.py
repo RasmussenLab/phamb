@@ -288,7 +288,7 @@ def label_checkv_bins_by_quality(args):
         genome_copies_index = header.index('genome_copies')
         contamination_index = header.index('contamination')
         quality_index = header.index('checkv_quality')
-        methoad_index = header.index('completeness_method')
+        method_index = header.index('completeness_method')
         miuvig_quality_index = header.index('miuvig_quality')
         viral_genes_index = header.index('viral_genes')
         prophage_index = header.index('prophage')

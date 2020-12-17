@@ -18,7 +18,7 @@ parser = argparse.ArgumentParser(description='''
     Annotating contigs to filter off possible non viral sequences
 ''')
 
-parser.add_argument('-c',help='VAMB clusterfile/clusters.tsv')
+parser.add_argument('-c',help='VAMB directory')
 parser.add_argument('-a',help='Annotation summary files directory')
 parser.add_argument('-v', help='checkv directory')
 
