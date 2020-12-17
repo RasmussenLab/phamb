@@ -13,7 +13,7 @@ CONTIGSUFFIX = config.get("contig_suffix")
 THREADS = config.get("threads_ppn")
 ASSEMBLY = config.get("combined_assembly")
 VAMBDIR = config.get("vamb_directory")
-
+GTDBK_reference = config.get('GTDBK_reference')
 
 ###  Cluster Execution 
 # The variables: walltime, nodes, ppn, mem and project are only relevant when submitting the Snake-flow as Cluster execution 
@@ -96,7 +96,7 @@ rule DeepVirFinder:
         walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
     threads: 1
     conda:
-        "envs/dvf.yaml"
+        "MAG_annotation/envs/dvf.yaml"
     log:
         "log/DVF/{sample}.dvf.log"
     shell:
@@ -112,7 +112,7 @@ rule summarise_annotations:
     output:
         outdir = directory( "04_snakeanno/annotation_summaries" )
     conda:
-        "envs/python38.yaml"
+        "MAG_annotation/envs/python38.yaml"
     shell:
         """
         python scripts/parse_annotation.py -c {input.clusterfile} \
@@ -122,4 +122,41 @@ rule summarise_annotations:
         --fasta {input.combined_assembly \
         --decontaminate
 
+        """
+
+### 
+## Evaluate MAG completeness
+rule checkm:
+    input:
+        "vamb/clusters.tsv"
+    output:
+        "vamb/checkm.results"
+    params:
+        walltime="86400", nodes="1", ppn=CHECKM_PPN, mem=CHECKM_MEM,
+        bins = "vamb/bins",
+        outdir = "vamb/checkm.outdir"
+    log:
+        "log/vamb/checkm.log"
+    threads:
+        int(CHECKM_PPN)
+    conda:
+        "envs/checkm.yaml"
+    shell:
+        "checkm lineage_wf -f {output} -t {threads} -x fna {params.bins} {params.outdir} 2>{log}"
+
+
+
+### Get Taxonomy of MQ and NC Bacteria
+rule gtdbtk_taxonomy:
+    input:
+        
+    output:
+        gtdbkout = '07_'
+
+rule get_gtdbtk_consensus:
+    input:
+        metadata = os.path.join(GTDBK_reference,'metadata/genome_metadata.tsv')
+    shell:
+        """
+        python MAG_annotation/scripts/gtdb_to_ncbi_majority_vote.py --gtdbtk_output_dir 07_binannotation/bacteria/gtdbtk
         """

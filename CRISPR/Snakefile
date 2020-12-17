@@ -46,7 +46,7 @@ rule CRISPRCAS:
         outdir = "07_binannotation/bacteria/snakecrisprcasfinder/{binid}"
     threads: 1
     conda:
-         "envs/cctyper.yaml"
+         "CRISPR/envs/cctyper.yaml"
     shell:
         ### cctyper wants  to make the output directory, so we need to avoid Snakemake making the file by making a tmp output file
         """
@@ -83,10 +83,10 @@ rule spacer_blastn:
 rule blastn_viruses:
     input:
         checkv_viruses = os.path.join(CHECKVDIR,'cleaned_contigs.fna'),
-        MAGgenomes_list = os.path.join(BINDIR,'MQNC_MAGS.txt')
     output:
         blastfile = "08_crisprcas/blastn/MAGS.all.virus.m6"
     params:
+        MAGgenomes_list = os.path.join(BINDIR,'MQNC_MAGS.txt'),
         MAGgenomes = "07_binannotation/bacteria/MQNC_MAGs.fna",
         blastparams = "-task megablast -evalue 0.001 -perc_identity 90"
     threads: THREADS
@@ -96,7 +96,7 @@ rule blastn_viruses:
         "ncbi-blast/2.8.1+"
     shell:
         """
-        xargs < {input.MAGgenomes_list} cat > {params.MAGgenomes}
+        xargs < {params.MAGgenomes_list} cat > {params.MAGgenomes}
         makeblastdb -in {params.MAGgenomes} -dbtype nucl
         
         blastn {params.blastparams} -num_threads {threads} \
@@ -124,12 +124,12 @@ rule write_viruses:
 rule fastani_viruses:
     input:
         checkvdir = CHECKVDIR,
-        MAGgenomes_list = os.path.join(BINDIR,'MQNC_MAGS.txt'),
         VIRgenomes_list = "08_crisprcas/viral_genomes/viral.genomes.files.txt"
     output:
         fastanifile = "08_crisprcas/fastani/MGXVIR.fastani.txt"
     params:
-        VIRgenome_directory = "08_crisprcas/viral_genomes"
+        VIRgenome_directory = "08_crisprcas/viral_genomes",
+        MAGgenomes_list = os.path.join(BINDIR,'MQNC_MAGS.txt')
     threads: THREADS
     envmodules:
         "tools",
@@ -140,7 +140,7 @@ rule fastani_viruses:
         fastANI -t {threads} \
         --fragLen 5000 \
         --minFrag 1 \
-        --rl {input.MAGgenomes_list} \
+        --rl {params.MAGgenomes_list} \
         --ql {input.VIRgenomes_list} \
         -o {output.fastanifile}
         """
@@ -159,15 +159,17 @@ rule gzip:
 
 rule MAG_Viral_connections:
     input:
-        VAMBDIR=VAMBDIR,
-        MAGTAXONOMI = MAGTAXONOMI,
-        CHECKMFILE = CHECKMFILE,
-        CHECKVDIR = CHECKVDIR
+        fastani= "08_crisprcas/fastani/MGXVIR.fastani.txt.gz",
+        blastfile = "08_crisprcas/blastn/MAGS.all.virus.m6"
     output:
         blast_host = "08_crisprcas/crispr_prophage_results/blastn_host_predictions.tsv",
         fastani_host = "08_crisprcas/crispr_prophage_results/FASTANI_host_predictions.tsv"
+    params:
+        VAMBDIR=VAMBDIR,
+        CHECKVDIR = CHECKVDIR,
+        MAGTAXONOMI = os.path.join('07_binannotation/bacteria/gtdbtk','mag_taxonomy.txt'),
     shell:
         """
-
+        python CRISPR/scripts/crispr_prophage_summary.py -c {params.CHECKVDIR} -g {params.MAGTAXONOMI} -v {}
         """
 

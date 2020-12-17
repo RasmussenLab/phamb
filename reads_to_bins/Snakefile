@@ -259,3 +259,4 @@ rule bamcoverage:
         ### Write out the fraction of the contig with Depth Zero 
         awk '$2==0' {output.contig_coverage} > {output.contig_coverage_zero}
         """
+
