@@ -240,6 +240,26 @@ rule vamb:
         vamb --outdir {output.vambout} --fasta {input.contigs} --bamfiles 03_mapping/*.bam 2>{log}" 
         """
 
+### 
+## Evaluate MAG completeness
+rule checkm:
+    input:
+        os.path.join("05_binning/vamb","/clusters.tsv")
+    output:
+        "vamb/checkm.results"
+    params:
+        walltime="86400", nodes="1", ppn=CHECKM_PPN, mem=CHECKM_MEM,
+        bins = "vamb/bins",
+        outdir = "vamb/checkm.outdir"
+    log:
+        "log/vamb/checkm.log"
+    threads: THREADS
+    conda:
+        "envs/checkm.yaml"
+    shell:
+        "checkm lineage_wf -f {output} -t {threads} -x fna {params.bins} {params.outdir} 2>{log}"
+
+
 
 rule bamcoverage:
     input:

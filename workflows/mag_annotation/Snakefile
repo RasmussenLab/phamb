@@ -124,26 +124,6 @@ rule summarise_annotations:
 
         """
 
-### 
-## Evaluate MAG completeness
-rule checkm:
-    input:
-        "vamb/clusters.tsv"
-    output:
-        "vamb/checkm.results"
-    params:
-        walltime="86400", nodes="1", ppn=CHECKM_PPN, mem=CHECKM_MEM,
-        bins = "vamb/bins",
-        outdir = "vamb/checkm.outdir"
-    log:
-        "log/vamb/checkm.log"
-    threads:
-        int(CHECKM_PPN)
-    conda:
-        "envs/checkm.yaml"
-    shell:
-        "checkm lineage_wf -f {output} -t {threads} -x fna {params.bins} {params.outdir} 2>{log}"
-
 
 
 ### Get Taxonomy of MQ and NC Bacteria
