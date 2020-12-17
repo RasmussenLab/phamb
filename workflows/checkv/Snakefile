@@ -1,0 +1,37 @@
+#!/usr/bin/env python
+
+configfile: 'config.yaml'
+
+PROJECT = config.get("cluster_project") # Who's paying for running this Flow on a Server-cluster?
+THREADS = config.get("threads_ppn")
+
+rule all:
+    input:
+        '07_binannotation/checkv/VAMB_bins',
+        '07_binannotation/checkv/contigs'
+
+
+rule checkv:
+
+    input:
+        VAMB_bins = '04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.bins.fna',
+        putative_viral_contigs = "04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.contigs.fna"
+    output:
+        checkv_bins= directory( '07_binannotation/checkv/VAMB_bins'),
+        checkv_contigs= directory( '07_binannotation/checkv/contigs')
+    conda:
+        "checkv/envs/checkv.yaml"
+    threads: THREADS
+    shell:
+        """ 
+        export CHECKVDB=/path/to/checkv-db
+        
+        checkv end_to_end {input.VAMB_bins} {output.checkv_bins} -t {threads}
+        checkv end_to_end {input.putative_viral_contigs} {output.checkv_contigs} -t {threads}
+        """ 
+
+
+### Parse CheckV output files
+
+### Additional annotation of i.e. NC genomes 
+

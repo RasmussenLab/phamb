@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 import os   
 
-configfile: 'CRISPRCAS/config.yaml'
+configfile: 'crispr/config.yaml'
 
 ### These are gonna go into the config file at some Point
 VIRALGENOMES="04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.bins.fna"
-MAGTAXONOMI="07_binannotation/bacteria/nc_gtdbtk_NC/mag_taxonomy.txt"
-VAMBDIR="05_binning/vamb_on_jgi/COPSAC"
-CHECKVDIR="07_binannotation/checkv/VAMB_bins"
+MAGTAXONOMI="07_binannotation/bacteria/gtdbtk/mag_taxonomy.txt"
+VAMBDIR= config["vambdir"]
+CHECKVDIR= config["checkvdir"]
 
 THREADS=20
 
@@ -15,7 +15,7 @@ THREADS=20
 ### Read Binids to be parsed
 BINDIR='07_binannotation/bacteria' 
 BINIDS = []
-CHECKMFILE = config.get("checkm_file")
+CHECKMFILE = config["checkm_file"]
 with open(CHECKMFILE,'r') as infile:
     for line in infile:
         line = line.strip().split('\t')[0]
@@ -33,7 +33,10 @@ rule target:
         expand("07_binannotation/bacteria/snakecrisprcasfinder/{binid}.tmp", binid=BINIDS),
         "07_binannotation/bacteria/snakecrisprcasfinder/new.spacers.viralfragment.m6",
         "08_crisprcas/blastn/MAGS.all.virus.m6",
-        "08_crisprcas/fastani/MGXVIR.fastani.txt.gz"
+        "08_crisprcas/fastani/MGXVIR.fastani.txt.gz",
+        "08_crisprcas/crispr_prophage_results/blastn_host_predictions.tsv",
+        "08_crisprcas/crispr_prophage_results/FASTANI_host_predictions.tsv"
+
 
 
 ### This one Produces a directory of files
@@ -117,7 +120,7 @@ rule write_viruses:
     shell:
         """
         echo "Writing Genomes to seperate files"
-        python CRISPRCAS/scripts/write_viruses.py -i {input.checkvdir} -o {output.VIRgenome_directory}
+        python crispr/scripts/write_viruses.py -i {input.checkvdir} -o {output.VIRgenome_directory}
 
         """
 
@@ -165,11 +168,11 @@ rule MAG_Viral_connections:
         blast_host = "08_crisprcas/crispr_prophage_results/blastn_host_predictions.tsv",
         fastani_host = "08_crisprcas/crispr_prophage_results/FASTANI_host_predictions.tsv"
     params:
-        VAMBDIR=VAMBDIR,
+        VAMBDIR = VAMBDIR,
         CHECKVDIR = CHECKVDIR,
-        MAGTAXONOMI = os.path.join('07_binannotation/bacteria/gtdbtk','mag_taxonomy.txt'),
+        MAGTAXONOMI = MAGTAXONOMI,
     shell:
         """
-        python CRISPR/scripts/crispr_prophage_summary.py -c {params.CHECKVDIR} -g {params.MAGTAXONOMI} -v {}
+        python crispr/scripts/crispr_prophage_summary.py -c {params.CHECKVDIR} -g {params.MAGTAXONOMI} -v {params.VAMBDIR}
         """
 

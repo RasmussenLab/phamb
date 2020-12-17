@@ -241,7 +241,8 @@ rule vamb:
         """
 
 ### 
-## Evaluate MAG completeness
+### Evaluate MAG completeness 
+### [TODO]We basically need the Genomes with size > 1 mbp here
 rule checkm:
     input:
         os.path.join("05_binning/vamb","/clusters.tsv")
