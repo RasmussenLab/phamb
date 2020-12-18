@@ -12,7 +12,7 @@ TMP_DIR = config.get("tmpdir")
 QC_HOST_DATABASE = config.get("QC_HOST_DATABASE")
 QC_TRIMMOMATIC_PARAMS = config.get("QC_TRIMMOMATIC_PARAMS")
 THREADS = config.get("threads_ppn")
-
+VAMBDIR = config.get('vambdir')
 
 # Parse samples
 # Expecting a structure like:  SAMPLEID R1.fastq.gz R2.fastq.gz
@@ -34,7 +34,11 @@ rule all:
         expand("01_qced/{sample}.R2.fastq.gz", sample=IDS),
         expand("02_assembly/{sample}/{sample}.contigs.flt.fa.gz", sample=IDS),
         expand("03_mapping/{sample}.sorted.bam", sample=IDS),
-        expand("03_mappingcoverage/{sample}.position.zero.coverage", sample=IDS)
+        expand("03_mappingcoverage/{sample}.position.zero.coverage", sample=IDS),
+        "05_binning/vamb/clusters.tsv",
+        "05_binning/vamb/checkm/checkm.results.txt",
+        '05_binning/vamb/gtdbtk'
+
 
 
 
@@ -220,15 +224,15 @@ rule bamsort:
     shell:
         "samtools sort {input.bam} -T {params.prefix} --threads 1 -m 3G -o {output.bamsorted} 2>{log}"
 
-### Run VAMB 
-
+### Run VAMB & Write out Bins
 rule vamb:
     input:
         contigs = "combined_assemblies/contigs.flt.fna.gz"
     output:
-        vambout = directory( "05_binning/vamb" )
+        vambout = directory( VAMBDIR )
     params:
-        walltime="86400", nodes="1", ppn="30", mem="190gb"
+        walltime="86400", nodes="1", ppn="30", mem="190gb",
+        minimum_size = 1*10**6
     log:
         "log/vamb/vamb.log"
     threads: 30
@@ -238,26 +242,72 @@ rule vamb:
         """
         rm -rf 05_binning/vamb
         vamb --outdir {output.vambout} --fasta {input.contigs} --bamfiles 03_mapping/*.bam 2>{log}" 
+        python reads_to_bins/scripts/write_MAG_bins.py -c {output.vambout}/clusters.tsv \
+        -f {input.contigs} \
+        -d {output.vambout}/genomes \
+        -m {params.minimum_size}
+
         """
 
 ### 
-## Evaluate MAG completeness
+### Evaluate MAG completeness 
+### [TODO]We basically need the Genomes with size > 1 mbp here
+### Also 
 rule checkm:
     input:
-        os.path.join("05_binning/vamb","/clusters.tsv")
+        os.path.join("05_binning/vamb","clusters.tsv")
     output:
-        "vamb/checkm.results"
+        checkm = os.path.join( VAMBDIR , "checkm/checkm.results.txt"),
+        checkm_MQNC = os.path.join( VAMBDIR , "checkm/checkm.MQNC.txt")
     params:
-        walltime="86400", nodes="1", ppn=CHECKM_PPN, mem=CHECKM_MEM,
-        bins = "vamb/bins",
-        outdir = "vamb/checkm.outdir"
+        walltime="86400", nodes="1", ppn=THREADS, mem="190gb",
+        bins = os.path.join( VAMBDIR ,"genomes" ),
+        outdir = os.path.join( VAMBDIR , "checkm" )
     log:
         "log/vamb/checkm.log"
     threads: THREADS
     conda:
         "envs/checkm.yaml"
     shell:
-        "checkm lineage_wf -f {output} -t {threads} -x fna {params.bins} {params.outdir} 2>{log}"
+        """
+        checkm lineage_wf -f {output.checkm} -t {threads} -x fna {params.bins} {params.outdir} 2>{log}
+        python reads_to_bins/scripts/get_MQNC_subset.py -c {output.checkm} -o {output.checkm_MQNC}
+        
+        """
+
+### Select MQ and NC Bins for GTDB-TK 
+## 
+
+### Get Taxonomy of MQ and NC Bacteria
+rule gtdbtk_taxonomy:
+    input:
+        
+    params:
+        REF = GTDBTKREF,
+        tmpdir = 'tmp/tmp_gtdbtk'
+    output:
+        gtdbkout = os.path.join(VAMBDIR , gtdbtk)
+        VAMBDIR = VAMBDIR
+    conda:
+        "reads_to_bins/envs/gtdbtk.yaml"
+    threads: THREADS
+    shell:
+        """
+        export GTDBTK_DATA_PATH={params.REF}
+        
+        ### Copy MQ+NC Genomes to a seperate directory  
+        for MAG in `cut -f1 {params.VAMBDIR}/checkm/checkm.MQNC.txt`; do
+            cp {params.VAMBDIR}/genomes/${MAG}.fna {params.tmpdir}
+        done
+
+        gtdbtk classify_wf \
+        --genome_dir {params.tmpdir}\
+        --out_dir {output} \
+        --cpus {threads} \
+        --force
+        rm {params.tmpdir}/*
+        """
+
 
 
 

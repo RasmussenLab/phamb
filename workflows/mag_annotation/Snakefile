@@ -13,7 +13,7 @@ CONTIGSUFFIX = config.get("contig_suffix")
 THREADS = config.get("threads_ppn")
 ASSEMBLY = config.get("combined_assembly")
 VAMBDIR = config.get("vamb_directory")
-GTDBK_reference = config.get('GTDBK_reference')
+GTDBTKREF = config.get('GTDBK_reference')
 
 ###  Cluster Execution 
 # The variables: walltime, nodes, ppn, mem and project are only relevant when submitting the Snake-flow as Cluster execution 
@@ -30,9 +30,9 @@ with open(SAMPLES,'r') as infile:
 
 rule all:
     input:
-        expand("04_snakeanno/{sample}/{sample}.hmmMiComplete105.tbl", sample=IDS),
-        expand("04_snakeanno/{sample}/{sample}.hmmVOG.tbl", sample=IDS),
-        expand("04_snakeanno/{sample}/contigs" + CONTIGSUFFIX + "_gt2000bp_dvfpred.txt", sample=IDS)
+        expand("04_annotation/{sample}/{sample}.hmmMiComplete105.tbl", sample=IDS),
+        expand("04_annotation/{sample}/{sample}.hmmVOG.tbl", sample=IDS),
+        expand("04_annotation/{sample}/contigs" + CONTIGSUFFIX + "_gt2000bp_dvfpred.txt", sample=IDS)
 
 
 
@@ -40,8 +40,8 @@ rule PRODIGAL:
     input:
         contigs = "assembly/{sample}/{sample}" + CONTIGSUFFIX
     output:
-        proteins = "04_snakeanno/{sample}/{sample}.predicted_proteins.faa",
-        genes = "04_snakeanno/{sample}/{sample}.predicted_proteins.fna"
+        proteins = "04_annotation/{sample}/{sample}.predicted_proteins.faa",
+        genes = "04_annotation/{sample}/{sample}.predicted_proteins.fna"
     params:
         walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
     threads: 1
@@ -55,10 +55,10 @@ rule PRODIGAL:
 
 rule miComplete:
     input:
-        proteins = "04_snakeanno/{sample}/{sample}.predicted_proteins.faa",
+        proteins = "04_annotation/{sample}/{sample}.predicted_proteins.faa",
         DB = MICOMPLETEDB
     output:
-        hmmfile = "04_snakeanno/{sample}/{sample}.hmmMiComplete105.tbl"
+        hmmfile = "04_annotation/{sample}/{sample}.hmmMiComplete105.tbl"
     params:
         walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
     threads: 1
@@ -72,10 +72,10 @@ rule miComplete:
 
 rule VOG:
     input:
-        proteins = "04_snakeanno/{sample}/{sample}.predicted_proteins.faa",
+        proteins = "04_annotation/{sample}/{sample}.predicted_proteins.faa",
         DB = VOGDB
     output:
-        hmmfile = "04_snakeanno/{sample}/{sample}.hmmVOG.tbl"
+        hmmfile = "04_annotation/{sample}/{sample}.hmmVOG.tbl"
     params:
         walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
     threads: 1
@@ -91,7 +91,7 @@ rule DeepVirFinder:
     input:
         contigs = "02_assembly/{sample}/{sample}" + CONTIGSUFFIX
     output:
-        dvffile = "04_snakeanno/{sample}/contigs" + CONTIGSUFFIX + "_gt2000bp_dvfpred.txt" 
+        dvffile = "04_annotation/{sample}/contigs" + CONTIGSUFFIX + "_gt2000bp_dvfpred.txt" 
     params:
         walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
     threads: 1
@@ -107,10 +107,14 @@ rule summarise_annotations:
     input:
         clusterfike = os.path.join(VAMBDIR,'clusters.tsv'),
         sample_table = SAMPLES,
-        annotation_directory = "04_snakeanno",
+        annotation_directory = "04_annotation",
         combined_assembly = ASSEMBLY
     output:
-        outdir = directory( "04_snakeanno/annotation_summaries" )
+        outdir = directory( "04_annotations/annotation_summaries" ),
+        "04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.bins.fna",
+        "04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.contigs.fna",
+        "04_annotation/annotation_summaries/vambbins_aggregated_annotation.txt",
+        "04_annotation/annotation_summaries/vambbins_aggregated_annotation.Viral.txt"
     conda:
         "MAG_annotation/envs/python38.yaml"
     shell:
@@ -121,22 +125,6 @@ rule summarise_annotations:
         -o {output.outdir} \
         --fasta {input.combined_assembly \
         --decontaminate
-
         """
 
 
-
-### Get Taxonomy of MQ and NC Bacteria
-rule gtdbtk_taxonomy:
-    input:
-        
-    output:
-        gtdbkout = '07_'
-
-rule get_gtdbtk_consensus:
-    input:
-        metadata = os.path.join(GTDBK_reference,'metadata/genome_metadata.tsv')
-    shell:
-        """
-        python MAG_annotation/scripts/gtdb_to_ncbi_majority_vote.py --gtdbtk_output_dir 07_binannotation/bacteria/gtdbtk
-        """
