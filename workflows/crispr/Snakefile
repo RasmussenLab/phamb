@@ -152,7 +152,7 @@ rule fastani_viruses:
         --ql {input.VIRgenomes_list} \
         -o {params.fastanifile}
 
-        gzip {output.fastanifile}
+        gzip {params.fastanifile}
         """
 
 
@@ -162,7 +162,7 @@ rule fastani_viruses:
 rule MAG_Viral_connections:
     input:
         fastani= "08_crisprcas/fastani/MGXVIR.fastani.txt.gz",
-        blastfile = "08_crisprcas/blastn/MAGS.all.virus.m6"
+        blastfile = "08_crisprcas/blastn/MAGS.all.virus.m6.gz"
     output:
         blast_host = "08_crisprcas/crispr_prophage_results/blastn_host_predictions.tsv",
         fastani_host = "08_crisprcas/crispr_prophage_results/FASTANI_host_predictions.tsv"
