@@ -128,18 +128,3 @@ rule summarise_annotations:
         """
 
 
-
-### Get Taxonomy of MQ and NC Bacteria
-rule gtdbtk_taxonomy:
-    input:
-        REF = GTDBTKREF
-    output:
-        gtdbkout = '07_'
-
-rule get_gtdbtk_consensus:
-    input:
-        REF_metadata = os.path.join(GTDBTKREF,'metadata/genome_metadata.tsv')
-    shell:
-        """
-        python MAG_annotation/scripts/gtdb_to_ncbi_majority_vote.py --gtdbtk_output_dir 07_binannotation/bacteria/gtdbtk
-        """
