@@ -280,7 +280,7 @@ def label_checkv_bins_by_quality(args):
     """
     quality_file = os.path.join(args.v,'quality_summary.tsv')
 
-    population_type_score = {3:'HQ-ref',2:'Grey-matter',1:'Dark-matter'}
+    population_type_score = {3:'HQ-ref',2:'MQ-ref',1:'Dark-matter'}
 
     viral_population_types = defaultdict()
     with open(quality_file,'r') as infile:
@@ -320,7 +320,7 @@ def label_checkv_bins_by_quality(args):
                     viral_population_types[motherbin] = population_type
                 continue
             
-            if checkv_quality in ['High-quality','Medium-quality'] and completeness_method == 'HMM-based':
+            if checkv_quality in ['Medium-quality'] and completeness_method == 'AAI-based':
                 population_type = 2
                 if motherbin in viral_population_types:
                     if population_type > viral_population_types[motherbin]:
@@ -353,8 +353,6 @@ def label_checkv_bins_by_quality(args):
 
 
 
-
-    
 
 
 
@@ -549,10 +547,6 @@ def write_bin_overview(args,bins,motherbins):
     for binid in fragmented_viral_genomes:
         rec = SeqRecord(fragmented_viral_genomes[binid],id=binid, description='')
         SeqIO.write(rec, outhandle, 'fasta')
-
-
-
-
 
 
 

@@ -38,7 +38,7 @@ def load_MGXMVX_HQ():
                 ANI = float(line[2])
                 percentage_of_vOTU = int(line[3])/int(line[4])*100
 
-                if ANI >= 90 and percentage_of_vOTU >= 75:
+                if ANI >= 95 and percentage_of_vOTU >= 75:
                     MGX_bin = bin_class()
                     MGX_bin.vOTU = (vOTU,ANI,percentage_of_vOTU)
                     MGX_bin.contigs = dict()
@@ -91,7 +91,6 @@ def load_MGXMVX_HQ():
     MGX_MVX_blastn_file = '06_blast_MGXMVX/MGX.2000.copsac.assemblies.vOTUs.new.m6'
     clusters_file = '05_binning/vamb_on_jgi/COPSAC/clusters.tsv'
     MGX_MVX_fastani_file = '06_fastani_MGXMVX/mvx_mgs.all.fastani.2.txt'
-    checkm_file ='07_binannotation/bacteria/checkm/COPSAC.output'
 
     ### Determine the HQ MVX genomes From COPSAC / Shiraz genomes
     p = 'combined_assemblies/checkv.out.new.vOTU/quality_summary.tsv'
@@ -100,7 +99,7 @@ def load_MGXMVX_HQ():
         vOTU = r["contig_id"]
         quality = r["checkv_quality"]
         completeness = r["completeness"]
-        if quality in ['High-quality','Medium-quality','Complete']:
+        if quality in ['High-quality','Complete']:
             HQ_vOTUs[vOTU] = 'NA'
 
     MGXMVX_bins = parse_fastani_hits(MGX_MVX_fastani_file,HQ_vOTUs)
@@ -733,8 +732,6 @@ def write_completeness_file(cluster_splits,VAMB_bin,hmm_completeness,out, HQ_MGX
             vOTU_contigs_in_refined_bin = sum([1 for c in contigs_included if c in contigs_in_vOTU])
             
             ### Total number of contigs, contigs matching the vOTU and contigs in the refined bin matching the vOTU
-
-            
             
             contigs_included = ';'.join(contigs_included)
             lineout = [VAMB_bin.bin,
@@ -788,9 +785,6 @@ if __name__ == "__main__":
     # Then determine how many of the individual contigs actually match their according MVX genome
     HQ_MGXMVX_bins_clean = load_MGXMVX_HQ()
 
-
-
-
     checkv_contig_contamination, checkv_contigs = read_checkv_contamination(args)
     checkv_contig_repeat = read_checkv_repeat(args)
     checkv_contig_completeness = read_checkv_completeness(args)
@@ -804,7 +798,7 @@ if __name__ == "__main__":
     checkv_results = {'repeats':checkv_contig_repeat,'completeness':checkv_contig_completeness,'contamination':checkv_contig_contamination,'contig_aai_tophits':contig_aai_tophits}
 
     ### Write results
-    fileout = os.path.join(args.v,'VAMB_completeness_HQMVX.tsv')
+    fileout = os.path.join(args.v,'VAMB_completeness_onlyHQMVX.AF75.tsv')
     with open(fileout,'w') as out:
 
         header = ['vamb_bin',
