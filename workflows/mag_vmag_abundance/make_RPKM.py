@@ -62,8 +62,6 @@ parser.add_argument('-o', help='Directory out')
 parser.add_argument('-t', help='Threads')
 
 
-DEFAULT_SUBPROCESSES = 28
-
 
 def read_contigs(filehandle, minlength=2000):
     """Parses a FASTA file open in binary reading mode.
@@ -343,6 +341,8 @@ def read_bamfiles(paths, dumpdirectory=None, refhash=None, minscore=None, minlen
 
     # Queue all the processes
     with _multiprocessing.Pool(processes=subprocesses) as pool:
+        print('Starting BAM parsing' , file=logfile)
+        print('Starting BAM parsing')
         for pathnumber, path in enumerate(paths):
             if dumpdirectory is None:
                 outpath = None
@@ -408,14 +408,13 @@ def read_bamfiles(paths, dumpdirectory=None, refhash=None, minscore=None, minlen
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    DEFAULT_SUBPROCESSES = args.t 
+    DEFAULT_SUBPROCESSES = int(args.t) 
 
     with vamb.vambtools.Reader(args.f, 'rb') as tnffile:
             contignames, lengths_arr = read_contigs(tnffile, minlength=2000)
 
     with open('vamb_log_97.txt', 'w') as logfile:
         refhash = vamb.parsebam._hash_refnames(contignames)
-
         dumpdirectory = 'vamb_tmp_id_97'
         rpkms, sample_order = read_bamfiles(args.b,dumpdirectory=dumpdirectory, refhash=refhash,   minscore=None,minlength=2000,minid=0.97,subprocesses=DEFAULT_SUBPROCESSES,logfile=logfile)
         
@@ -428,12 +427,3 @@ if __name__ == "__main__":
         shutil.rmtree(dumpdirectory)
 
 
-
-class Args:
-    def __init__(self,b,v,o,f):
-        self.b =  b
-        self.v = v 
-        self.o = o
-        self.f = f
-
-args = Args('mapping_files.txt','g','05_binning/vamb_on_jgi_v3/HMP2','combined_assemblies/HMP2.fna')

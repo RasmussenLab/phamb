@@ -8,11 +8,12 @@ FASTQDIR = config.get("FASTQDIR")
 LOGFILE= config.get("LOGFILE")
 PROJECT = config.get("cluster_project") # Who's paying for running this Flow on a Server-cluster?
 TMP_DIR = config.get("tmpdir")
-
 QC_HOST_DATABASE = config.get("QC_HOST_DATABASE")
 QC_TRIMMOMATIC_PARAMS = config.get("QC_TRIMMOMATIC_PARAMS")
 THREADS = config.get("threads_ppn")
 VAMBDIR = config.get('vambdir')
+GTDBTKREF='/home/projects/cpr_10006/data/Databases/gtdb/release95/release95'
+
 
 # Parse samples
 # Expecting a structure like:  SAMPLEID R1.fastq.gz R2.fastq.gz
@@ -33,8 +34,8 @@ rule all:
         expand("01_qced/{sample}.R1.fastq.gz", sample=IDS),
         expand("01_qced/{sample}.R2.fastq.gz", sample=IDS),
         expand("02_assembly/{sample}/{sample}.contigs.flt.fa.gz", sample=IDS),
-        expand("03_mapping/{sample}.sorted.bam", sample=IDS),
-        expand("03_mappingcoverage/{sample}.position.zero.coverage", sample=IDS),
+        expand("03_mapping/{sample}.bam", sample=IDS),
+        #expand("03_mappingcoverage/{sample}.position.zero.coverage", sample=IDS),
         "05_binning/vamb/clusters.tsv",
         "05_binning/vamb/checkm/checkm.results.txt",
         '05_binning/vamb/gtdbtk'
@@ -213,7 +214,7 @@ rule bamsort:
     output:
         bamsorted = temp("03_mapping/{sample}.bam.sorted")
     params:
-        walltime="864000", nodes="1", ppn="2", mem="15gb",
+        walltime="864000", nodes="1", ppn="1", mem="15gb",
         prefix="mapped/tmp.{sample}"
     threads:
         int(2)
@@ -261,8 +262,8 @@ rule checkm:
         checkm_MQNC = os.path.join( VAMBDIR , "checkm/checkm.MQNC.txt")
     params:
         walltime="86400", nodes="1", ppn=THREADS, mem="190gb",
-        bins = os.path.join( VAMBDIR ,"genomes" ),
-        outdir = os.path.join( VAMBDIR , "checkm" )
+        bins = os.path.join( VAMBDIR ,"genomes"),
+        outdir = os.path.join( VAMBDIR , "checkm")
     log:
         "log/vamb/checkm.log"
     threads: THREADS
@@ -281,13 +282,14 @@ rule checkm:
 ### Get Taxonomy of MQ and NC Bacteria
 rule gtdbtk_taxonomy:
     input:
-        
+        checkm_MQNC = os.path.join( VAMBDIR , "checkm/checkm.MQNC.txt")
     params:
         REF = GTDBTKREF,
-        tmpdir = 'tmp/tmp_gtdbtk'
-    output:
-        gtdbkout = os.path.join(VAMBDIR , gtdbtk)
+        REFMETA = os.path.join(GTDBTKREF,'metadata','genome_metadata.tsv'),
+        tmpdir = 'tmp/tmp_gtdbtk',
         VAMBDIR = VAMBDIR
+    output:
+        gtdbkout = os.path.join(VAMBDIR , "gtdbtk")
     conda:
         "reads_to_bins/envs/gtdbtk.yaml"
     threads: THREADS
@@ -296,7 +298,7 @@ rule gtdbtk_taxonomy:
         export GTDBTK_DATA_PATH={params.REF}
         
         ### Copy MQ+NC Genomes to a seperate directory  
-        for MAG in `cut -f1 {params.VAMBDIR}/checkm/checkm.MQNC.txt`; do
+        for MAG in `cut -f1 {input.checkm_MQNC}`; do
             cp {params.VAMBDIR}/genomes/${MAG}.fna {params.tmpdir}
         done
 
@@ -306,11 +308,18 @@ rule gtdbtk_taxonomy:
         --cpus {threads} \
         --force
         rm {params.tmpdir}/*
+
+        ### 
+        python reads_to_bins/scripts/gtdb_to_ncbi_majority_vote.py --gtdbtk_output_dir {output} \
+        --output_file {output}/mag_taxonomy.txt \
+        --bac120_metadata_file {params.REFMETA}
+
+        ### Summarise MAG annotations pr. VAMB cluster
+
         """
 
 
-
-
+### EXTRA
 rule bamcoverage:
     input:
         bamsorted = "03_mapping/{sample}.bam.sorted"

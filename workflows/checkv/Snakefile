@@ -1,37 +1,165 @@
 #!/usr/bin/env python
+from Bio import SeqIO
+import os
 
-configfile: 'config.yaml'
+configfile: 'checkv/config.yaml'
 
 PROJECT = config.get("cluster_project") # Who's paying for running this Flow on a Server-cluster?
 THREADS = config.get("threads_ppn")
 
+
+def splitgenomes(fasta_file,directory_out):
+    os.makedirs(directory_out, exist_ok = True)
+    for record in SeqIO.parse(open(fasta_file, 'r'), 'fasta'):
+            record.description = record.id
+            contig = record.id
+            outhandle = open('{}/{}.fna'.format(directory_out,contig),  'w')
+            SeqIO.write(record, outhandle, 'fasta') 
+
 rule all:
     input:
-        '07_binannotation/checkv/VAMB_bins',
-        '07_binannotation/checkv/contigs'
-
+        '07_binannotation/checkv/VAMB_bins/quality_summary.tsv',
+        '07_binannotation/checkv/VAMB_contigs/quality_summary.tsv',
+        directory('07_binannotation/checkv/interproscan'),
+        directory('07_binannotation/checkv/VAMB_bins_virsorter2'),
+        '07_binannotation/checkv/VAMB_bins_fastani/fastani_allvsall.txt'
 
 rule checkv:
-
     input:
         VAMB_bins = '04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.bins.fna',
-        putative_viral_contigs = "04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.contigs.fna"
+        putative_viral_contigs = "04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.contigs.fna.gz"
     output:
-        checkv_bins= directory( '07_binannotation/checkv/VAMB_bins'),
-        checkv_contigs= directory( '07_binannotation/checkv/contigs')
+        checkv_bins=  '07_binannotation/checkv/VAMB_bins/quality_summary.tsv',
+        checkv_contigs= '07_binannotation/checkv/VAMB_contigs/quality_summary.tsv'
     conda:
-        "checkv/envs/checkv.yaml"
+        "envs/checkv.yaml"
     threads: THREADS
     shell:
         """ 
-        export CHECKVDB=/path/to/checkv-db
+        export CHECKVDB=/home/projects/cpr_10006/projects/phamb/HMP2/databases/checkv/checkv-db-v0.6
         
         checkv end_to_end {input.VAMB_bins} {output.checkv_bins} -t {threads}
         checkv end_to_end {input.putative_viral_contigs} {output.checkv_contigs} -t {threads}
         """ 
 
+rule virsorter2:
+    input:
+        VAMB_bins = os.path.join('07_binannotation/checkv/VAMB_bins','cleaned_contigs.fna'),
+        VAMB_contigs = os.path.join('07_binannotation/checkv/VAMB_contigs','cleaned_contigs.fna'),
+    output:
+        VAMB_bins_vs2 = directory('07_binannotation/checkv/VAMB_bins_virsorter2'),
+        VAMB_contigs_vs2 = directory('07_binannotation/checkv/VAMB_contigs_virsorter2')
+    threads: THREADS
+    conda:
+        "envs/vs2.yaml"
+    shell:
+        """
+        virsorter run -j {threads} --viral-gene-required --min-length 10000 -i {input.VAMB_bins} -w {output.VAMB_bins_vs2}
+        virsorter run -j {threads} --viral-gene-required --min-length 10000 -i {input.VAMB_contigs} -w {output.VAMB_contigs_vs2}
+        """
 
-### Parse CheckV output files
 
-### Additional annotation of i.e. NC genomes 
+############### Viral Taxonomy ############### 
+
+
+############### Viral Proteomes ############### 
+
+### Write out Viral Proteins into a single file
+# This rule creates:
+#   virus_proteins.faa
+#   virus_contings.fna 
+#   viral_host_contamination.tsv
+rule write_viral_proteins:
+    input:
+        checkv = '07_binannotation/checkv/VAMB_bins/quality_summary.tsv'
+    output:
+        viral_proteins = os.path.join('07_binannotation/checkv/VAMB_bins','virus_proteins.faa'),
+        viral_contigs = os.path.join('07_binannotation/checkv/VAMB_bins','virus_contigs.fna')
+    params:
+        checkv = '07_binannotation/checkv/VAMB_bins'
+    shell:
+        """
+        python checkv/scripts/checkv_viral_proteins.py -v {params.checkv} -o {output.viral_proteins}
+        """
+
+
+### Split the virus-fasta into seperate viral .fna files then run fastANI all vs all
+
+rule prepare_viruses_for_fastani:
+    input:
+        VAMB_bins_contigs = os.path.join('07_binannotation/checkv/VAMB_bins','virus_contigs.fna')
+    output:
+        genome_directory = directory('07_binannotation/checkv/VAMB_bins_fastani/genomes')
+    run:
+        splitgenomes(fasta_file = input[0] , directory_out=output[0])
+
+rule fastani_allvsall:
+    input:
+        genome_directory = '07_binannotation/checkv/VAMB_bins_fastani/genomes'
+    output:
+        fastani_out = '07_binannotation/checkv/VAMB_bins_fastani/fastani_allvsall.txt',
+    params:
+        genomes_list = '07_binannotation/checkv/VAMB_bins_fastani/genomes_list.txt',
+        fastani_out_parseable = '07_binannotation/checkv/VAMB_bins_fastani/fastani_allvsall.clean.txt'
+    threads: THREADS
+    conda:
+        "envs/fastani.yaml"
+    shell:
+        """
+        ls 07_binannotation/checkv/VAMB_bins_fastani/genomes/*fna > {params.genomes_list}
+        fastANI -t {threads} --fragLen 1000 --minFrag 2 --rl {params.genomes_list} --ql {params.genomes_list} -o {output.fastani_out}
+        python  checkv/scripts/fastani_parse.py -f {output.fastani_out} -o {params.fastani_out_parseable}
+
+        """
+
+
+### cluster and annotate 
+rule protein_clustering:
+    input:
+        viral_proteins = os.path.join('07_binannotation/checkv/VAMB_bins', 'virus_proteins.faa') 
+    output:
+        nr_viral_proteins =  os.path.join('07_binannotation/checkv/VAMB_bins', 'virus_proteins.nr.faa')
+    threads: THREADS
+    conda:
+        "envs/cdhit.yaml"
+    shell:
+        """
+        cd-hit -i {input.viral_proteins} -d 0 -aS 0.9 -M 0 -T {threads} -o {output.nr_viral_proteins}
+        """
+
+rule interproscan:
+    input:
+        nr_viral_proteins = os.path.join('07_binannotation/checkv/VAMB_bins', 'virus_proteins.nr.faa')
+    params:
+        vps = os.path.join('07_binannotation/checkv/VAMB_bins', 'virus_proteins.nr.clean.faa')
+    output:
+        interproscan = directory('07_binannotation/checkv/interproscan')
+    threads: THREADS
+    envmodules:
+        "tools",
+        "anaconda3/4.4.0",
+        "perl/5.24.0",
+        "java/1.8.0-openjdk",
+        "interproscan/5.36-75.0"
+    shell:
+        """ 
+        sed "s/\*//g" {input.nr_viral_proteins} > {params.vps}
+        mkdir -p {output.interproscan}
+        interproscan.sh -goterms -pa -f tsv -appl Pfam,TIGRFAM,SUPERFAMILY,Gene3D --cpu {threads} \
+        -i {params.vps} \
+        --output-dir {output.interproscan}
+        rm {params.vps}
+        """
+
+
+### Organise annotations of all Viral proteins using the cluster relations
+rule viral_proteome_interproscan:
+    input:
+        viral_interproscan = os.path.join('07_binannotation/checkv/interproscan')
+    output:
+        viral_interpro_table = os.path.join('07_binannotation/checkv/interproscan','virus.bins.interpros.txt')
+    shell:
+        """
+        python checkv/scripts/interpro_proteome.py -v {input.checkv} -o {output.viral_interproscan}
+        """
 
