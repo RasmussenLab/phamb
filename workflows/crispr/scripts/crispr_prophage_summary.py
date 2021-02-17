@@ -69,7 +69,7 @@ def load_MQ_bins(args):
     return  medium_quality_bins
 
 
-def load_MAG_taxonomy():
+def load_MAG_taxonomy(args):
     '''
     GTDB-TK annotation of NC MAGs.
     IDEALLY this should be a consensus vote, not the first occuring...
@@ -120,7 +120,7 @@ def evaluate_host_consistency(_MAG_benchmark):
     lineage = ['superkingdom','phylum','class','order','family','genus','species']
 
     ### Load in MAG taxonomy 
-    MAG_tax = load_MAG_taxonomy()
+    MAG_tax = load_MAG_taxonomy(args)
     
     ### Calculate the most common Viral host across lineages
     mag_annotations = _MAG_benchmark
@@ -132,21 +132,15 @@ def evaluate_host_consistency(_MAG_benchmark):
             self.purity_spacer_lineage = None
             self.purity_prophage_lineage = None
 
-
     virus_annotations = dict()
     for MAG in mag_annotations:
         if len(mag_annotations[MAG]) == 0:
             continue
-
         MAG_motherbin = MAG.split('_')[1]
-
         if not MAG_motherbin in MAG_tax:
             continue
         MAG_lineage = MAG_tax[MAG_motherbin]
-
         for phage in mag_annotations[MAG]:
-
-            ### 
             if not phage in virus_annotations:
                 viral_class = Virus_class()
                 viral_class.spacers = {k:[] for k in lineage}
@@ -163,23 +157,19 @@ def evaluate_host_consistency(_MAG_benchmark):
             if not host_annotations['prophage'] is None:
                 for k in lineage:
                     lin = MAG_lineage[k]
-                    viral_class.prophages[k].append(lin) 
-            
+                    viral_class.prophages[k].append(lin)   
             virus_annotations[phage] = viral_class
     
     ### Calculate most Common Host Taxonomy at each Lineage 
     ### & Evaluate Host-prediction-purity 
     for phage in virus_annotations:
         viral_class = virus_annotations[phage]
-
         viral_class.domintant_spacer_lineage = None
         viral_class.domintant_prophage_lineage = None
-
         dominant_spacer_lineage = {k:'NA' for k in lineage}
         dominant_prophage_lineage = {k:'NA' for k in lineage}
         purity_spacer_lineage = {k:'NA' for k in lineage}
         purity_prophage_lineage = {k:'NA' for k in lineage}
-
         for k in lineage:
             c = Counter(viral_class.spacers[k])
             cmc = c.most_common()
@@ -192,7 +182,6 @@ def evaluate_host_consistency(_MAG_benchmark):
             if len(cmc) != 0:
                 dominant_prophage_lineage[k] = cmc[0][0]
                 purity_prophage_lineage[k] = viral_class.prophages[k].count(cmc[0][0])/len(viral_class.prophages[k])
-        
         if dominant_spacer_lineage['superkingdom'] == 'NA':
             viral_class.domintant_spacer_lineage = None
         else:
@@ -340,9 +329,6 @@ def parse_CRISPR_results(args,MAGs,CONTIG2MAG):
                     if not phagemotherbin in MAGs[MAG]:
                         MAGs[MAG][phagemotherbin] = {'spacer':True,'prophage':None,'both':None}
     return MAGs
-
-
-
 
 def parse_FastANI_results(args,MAGs,medium_quality_bins,population_type,number_of_5000bp_pieces):
     

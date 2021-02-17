@@ -101,14 +101,6 @@ def define_tasks(args):
     '''
     tasks = []
 
-    ### Check for IMGVR and PLSDB  
-    for db in ['IMGVR','PLSDB','VIRALREFSEQ']:
-        cleaned_m6_out = os.path.join(args.outdir,db+'.allsamples.m6')
-        if os.path.exists(cleaned_m6_out):
-            print('{} file already there - delete to generate again'.format(db))
-        else:
-            tasks.append(db)
-
     ### Check for PVOG and MiComplete105
     for hmm in ['hmmMiComplete105','hmmVOG']:
         cleaned_hmmfile_out = os.path.join(args.outdir,hmm+'.allsamples.txt')
@@ -494,8 +486,8 @@ def aggregate_bin_annotation(args,cls,binsannos):
     print('Parsing VOG HMM search')
     bin_vog_count = parse_PVOG_hits(args,cls,binsannos)
 
-    print('Parsing IMGVR blast-hits')
-    bin_IMGVR_fraction = parse_IMGVR_hits(args,cls,binsannos,seqid=95,coverage = 0.5)
+    #print('Parsing IMGVR blast-hits')
+    #bin_IMGVR_fraction = parse_IMGVR_hits(args,cls,binsannos,seqid=95,coverage = 0.5)
 
     print('Parsing DVF contig scores - this may take some timee...')
     bin_median_DVF, cluster_median_DVF = parse_DVF_preds(args,cls)
@@ -509,7 +501,7 @@ def aggregate_bin_annotation(args,cls,binsannos):
 
     print('Writing results to:',fileout)
     with open(fileout,'w') as out:
-        header = ['binid','ncontigs','binsize','motherbin','nhallm','nVOGs','IMGVRhits_frac','bin_DVF_score','cluster_DVF_score']
+        header = ['binid','ncontigs','binsize','motherbin','nhallm','nVOGs','bin_DVF_score','cluster_DVF_score']
 
         out.write('\t'.join(header) + '\n')
         for binid in binsannos:
@@ -535,11 +527,6 @@ def aggregate_bin_annotation(args,cls,binsannos):
                 nVOGs = 0
             else:
                 nVOGs = bin_vog_count[binid]
-
-            if binid not in bin_IMGVR_fraction:
-                IMGVRhits_frac = 0
-            else:
-                IMGVRhits_frac = bin_IMGVR_fraction[binid]
             
             if binid not in bin_median_DVF:
                 bin_DVF_score = 0
@@ -552,11 +539,10 @@ def aggregate_bin_annotation(args,cls,binsannos):
                 cluster_DVF_score = cluster_median_DVF[mothercluster]
 
             ### 
-            lineout += [ncontigs,binsize, mothercluster, nhallmarks, round(nVOGs,2), round(IMGVRhits_frac,2), round(bin_DVF_score,2),round(cluster_DVF_score,2)]
+            lineout += [ncontigs,binsize, mothercluster, nhallmarks, round(nVOGs,2), round(bin_DVF_score,2),round(cluster_DVF_score,2)]
             lineout = [str(x) for x in lineout]
 
             out.write('\t'.join(lineout) + '\n')
-
 
 
 
@@ -662,7 +648,7 @@ if __name__ == "__main__":
 
     ### Run parsers
     parse_hmmfiles(args,task_list,samples)
-    parse_blastfiles(args,task_list,samples)
+    #parse_blastfiles(args,task_list,samples)
     parse_DVF(args,task_list,samples)
     parse_Prodigal(args,task_list,samples)
     print('Done')

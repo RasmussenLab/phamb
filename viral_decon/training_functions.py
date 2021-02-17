@@ -1,5 +1,5 @@
 from sklearn.model_selection import train_test_split
-
+import pyplot
 import pandas as pd
 import numpy as np
 import sys 
@@ -16,8 +16,8 @@ class bin_annotation:
 def read_in_clusters(cluster_file):
     
     print('Reading in Clusters, this may take a while...')
-    binsannos = dict()
-    cls = dict()
+    bin_annotations = dict()
+    clusters = dict()
     with open(cluster_file,'r') as infile:
         for line in infile:
             line = line.strip().split('\t')
@@ -26,30 +26,24 @@ def read_in_clusters(cluster_file):
             binid = sample + '_' + cluster
             if 'length' in contig:
                 contiglength = int(contig.split('length')[1].split('_')[1])
-
-
-            if binid not in binsannos:
-                binsannos[binid] = bin_annotation(binid,cluster)
-                binsannos[binid].ncontigs = 1
-                binsannos[binid].binsize += contiglength
-
+            if binid not in bin_annotations:
+                bin_annotations[binid] = bin_annotation(binid,cluster)
+                bin_annotations[binid].ncontigs = 1
+                bin_annotations[binid].binsize += contiglength
             else:
-                binsannos[binid].ncontigs += 1
-                binsannos[binid].binsize += contiglength
+                bin_annotations[binid].ncontigs += 1
+                bin_annotations[binid].binsize += contiglength
+            if contig not in clusters:
+                clusters[contig] = (cluster,binid)
+    return clusters, bin_annotations
 
-            if contig not in cls:
-                cls[contig] = (cluster,binid)
-    return cls, binsannos
 
-
-def parse_MVX_hits(MVX_file,cls,binsannos,seqid=95,coverage = 0.5, NC_MVX=False ):
-    
+def parse_MVX_hits(MVX_file,clusters,bin_annotations,seqid=95,coverage = 0.5, NC_MVX=False ):
     '''
     Calculate How many Contigs in each bin with hits to IMGVR genomes
     Also keep track of how covered each MVX contig is by MGX genomes
     '''
     MVX_genomes_coverage = dict()
-    
     bin_MVXhits = dict()
     with open(MVX_file,'r') as infile:
         for line in infile:
@@ -58,13 +52,10 @@ def parse_MVX_hits(MVX_file,cls,binsannos,seqid=95,coverage = 0.5, NC_MVX=False 
             sequence_identity = float(line[2])
             alignment_length = int(line[3])
             MVX_genome = line[1]
-            
             MVX_genome_length = int(line[-1])
-            if contig in cls:
-                binid = cls[contig][1]
-
-                if sequence_identity >= seqid and alignment_length/MVX_genome_length >= coverage:
-                    
+            if contig in clusters:
+                binid = clusters[contig][1]
+                if sequence_identity >= seqid and alignment_length/MVX_genome_length >= coverage:     
                     if binid not in bin_MVXhits:
                         bin_MVXhits[binid] = set([contig])
                     else:
@@ -80,31 +71,27 @@ def parse_MVX_hits(MVX_file,cls,binsannos,seqid=95,coverage = 0.5, NC_MVX=False 
                     else:
                         MVX_genomes_coverage[MVX_genome][ref_to:ref_from] += 1
     
+    ### Calculate MVX genome coverage
     for MVX_genome in MVX_genomes_coverage:
-        cov = MVX_genomes_coverage[MVX_genome]
-        covered = 1-(len(cov[cov==0])/len(cov))
+        coverage = MVX_genomes_coverage[MVX_genome]
+        covered = 1-(len(coverage[coverage==0])/len(coverage))
         MVX_genomes_coverage[MVX_genome] = covered
-        
     MVX_genome_df = pd.DataFrame.from_dict(MVX_genomes_coverage, orient='index',columns=['coverage'])
-    
     completeness_fact = {'LQ':25, 'MQ':50, 'NC':90}
     completeness = []
-    for cov in MVX_genome_df['coverage']:
-        cov = cov*100
+    for coverage in MVX_genome_df['coverage']:
+        percentage_coverage = coverage*100
         decision = 'NA'
-        for q in completeness_fact:
-            if cov >= completeness_fact[q]:
-                decision = q
+        for quality in completeness_fact:
+            if percentage_coverage >= completeness_fact[quality]:
+                decision = quality
         completeness.append(decision)
-    
     MVX_genome_df['Q'] = completeness
-
-    
     
     ### Summarise strong hits for each bin
     bin_MVX_fraction = dict()
     for binid in bin_MVXhits:
-        n_contigs = binsannos[binid].ncontigs
+        n_contigs = bin_annotations[binid].ncontigs
         nhits = len(bin_MVXhits[binid])
         bin_imgvr_fraction = nhits/n_contigs
         bin_MVX_fraction[binid] = bin_imgvr_fraction
@@ -112,12 +99,11 @@ def parse_MVX_hits(MVX_file,cls,binsannos,seqid=95,coverage = 0.5, NC_MVX=False 
     return bin_MVX_fraction, MVX_genome_df
 
 
-
 def prepare_train_test_set(vamb_bins_file,clusters_file,MVX_blast_file,checkm_file):
     '''
-    Hver MGX bin får enten en Bacterial eller Viral label.
-    - Bacterial hvis CheckM completeness >= 25% og contamination <= 10%
-    - Viral hvis 95% af contigs i MGX bin mapper til en MVX genome med minimum 95% sequence identity af minimum 50% af contig længden
+    Each VAMB bin is annotated either as Bacterial or Viral.
+    - Bacteria if CheckM completeness >= 25% and contamination <= 10%
+    - Viral if 95% of all contigs in MGX bin maps to an MVX genome with minimum 95% sequence identity and minimum 50% query sequence coverage.
     '''
     vambbins_df = pd.read_csv(vamb_bins_file,sep='\t')
 
@@ -125,7 +111,6 @@ def prepare_train_test_set(vamb_bins_file,clusters_file,MVX_blast_file,checkm_fi
     LABEL = ['NA' for i in range(vambbins_df.shape[0])]
 
     # Using CHECKM
-
     MQNC_bins = set()
     with open(checkm_file,'r') as infile:
         for line in infile:
@@ -147,8 +132,8 @@ def prepare_train_test_set(vamb_bins_file,clusters_file,MVX_blast_file,checkm_fi
             LABEL[i] = 'Bacterial'
     
     ### Viral     
-    cls, binsannos = read_in_clusters(cluster_file = clusters_file)
-    bin_MVX_fraction,MVX_genome_df = parse_MVX_hits(MVX_blast_file, cls, binsannos)
+    clusters, binsannos = read_in_clusters(cluster_file = clusters_file)
+    bin_MVX_fraction,MVX_genome_df = parse_MVX_hits(MVX_blast_file, clusters, binsannos)
     #bin_MVX_fraction,MVX_genome_df = parse_MGXMVX_fastani(fastani_file,cls)
     
     nhallm_dict = dict(zip(vambbins_df.binid, vambbins_df.nhallm))
@@ -166,8 +151,6 @@ def prepare_train_test_set(vamb_bins_file,clusters_file,MVX_blast_file,checkm_fi
             
     ### Remove all bins without an Annotation
     vambbins_df['LABEL'] = LABEL
-    #vambbins_df = vambbins_df[vambbins_df['LABEL'] != 'NA']
-    #labels = np.array(vambbins_df['LABEL'])
 
     vambbins_df_subset = vambbins_df[['binid','binsize','nhallm','nVOGs','cluster_DVF_score','LABEL']]
     viral_mask = list( (vambbins_df_subset.LABEL=='NA') & (vambbins_df_subset.nhallm==0) & (vambbins_df_subset.nVOGs >0) & (vambbins_df_subset.cluster_DVF_score >0.5) )
@@ -183,12 +166,7 @@ def prepare_train_test_set(vamb_bins_file,clusters_file,MVX_blast_file,checkm_fi
                                                           stratify = labels,
                                                           test_size = 0.6, 
                                                           random_state = 1)
-
     train_objects = {'train':train, 'test':test, 'train_labels':train_labels, 'test_labels':test_labels}
-
-
-    
-
     return vambbins_df, vambbins_df_subset ,MVX_genome_df, train_objects
 
 
@@ -241,7 +219,7 @@ def randomsearch_crossval(training_set, training_labels):
     # Fit the random search model
     rf_random.fit(np.array(training_set), np.array(training_labels))
     best_random_model = rf_random.best_estimator_
-    print(rf_random.best_params_)
+
 
     return(best_random_model)
 
@@ -287,48 +265,38 @@ def gridsearch_crossval(training_set, training_labels):
 
 
 ### Code to return contig table to assert DVF performance 
-
-
 def return_DVF_table(cluster_file, DVF_predictions_file, labelled_bins):
-    
-    cls, binasannos = read_in_clusters(cluster_file)
-    
+    '''Function to parse DVF predictions for single contigs
+       This is used for assessing performance of Viral prediction if it was conducted without Bins
+    '''
+    clusters, binasannos = read_in_clusters(cluster_file)
     DVF_table = []
+    
     ### Parse DVF predictions
     with open(DVF_predictions_file,'r') as infile:
         for line in infile:
             contig, score,pvalue, sample = line.strip().split('\t')
-            
-            if contig not in cls:
+            if contig not in clusters:
                 continue
-                
-            binid = cls[contig][1]
-            
+            binid = clusters[contig][1]
             if binid not in labelled_bins:
-                continue
-            
+                continue 
             true_label = labelled_bins[binid]
-            
             prediction = None
+
+            ### DVF prediction determined a contig as Viral if both P-value < 0.05 and Score above 0.5 
             if float(pvalue) < 0.05 and float(score) > 0.5:
                 prediction = 'Viral'
             else:
                 prediction = 'Bacterial'
             row = [contig,binid,true_label,prediction,score]
             DVF_table.append(row)
-    
     DVF_table = pd.DataFrame(DVF_table,columns=['contigid','binid','LABEL','DVF_prediction','DVF_score'])
-    
     return DVF_table
 
 
 
-
-
-
 ### Functions for plotting
-
-
 def train_and_test_RF(model,train, test, train_labels, test_labels):
 
     model.fit(train, train_labels)

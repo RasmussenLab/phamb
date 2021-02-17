@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+from Bio import SeqIO
+import os
+import gzip
 
 configfile: 'config.yaml'
 
@@ -9,11 +12,32 @@ VOGDB= config.get("VOGDB")
 SAMPLES = config.get("sample_file_path")
 PROJECT = config.get("cluster_project") # Who's paying for running this Flow on a Server-cluster?
 TMP_DIR = config.get("tmpdir")
-CONTIGSUFFIX = config.get("contig_suffix")
+CONTIGSUFFIX = '.fna'
 THREADS = config.get("threads_ppn")
 ASSEMBLY = config.get("combined_assembly")
 VAMBDIR = config.get("vamb_directory")
 GTDBTKREF = config.get('GTDBK_reference')
+
+CONTIGSCOMBINED 
+
+def splitcontigs_to_samples(fasta_file,directory_out):
+    
+    current_sample = None
+    outhandle = None
+    for record in SeqIO.parse(gzip.open(fasta_file, 'rt'), 'fasta'):
+            record.description = record.id
+            contig = record.id
+            sample = contig.split('CNODE')[0]
+
+            if sample != current_sample:
+                os.makedirs(os.path.join(directory_out,sample),exist_ok=True)
+                outhandle = open('{}/{}/{}.fna'.format(directory_out,sample,sample),  'w')
+                SeqIO.write(record, outhandle, 'fasta') 
+            else:
+                SeqIO.write(record, outhandle, 'fasta') 
+
+splitcontigs_to_samples('contigs.fna.gz','assembly')
+
 
 ###  Cluster Execution 
 # The variables: walltime, nodes, ppn, mem and project are only relevant when submitting the Snake-flow as Cluster execution 
@@ -33,6 +57,8 @@ rule all:
         expand("04_annotation/{sample}/{sample}.hmmMiComplete105.tbl", sample=IDS),
         expand("04_annotation/{sample}/{sample}.hmmVOG.tbl", sample=IDS),
         expand("04_annotation/{sample}/contigs" + CONTIGSUFFIX + "_gt2000bp_dvfpred.txt", sample=IDS)
+
+
 
 
 
@@ -126,5 +152,3 @@ rule summarise_annotations:
         --fasta {input.combined_assembly \
         --decontaminate
         """
-
-

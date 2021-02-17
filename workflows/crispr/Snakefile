@@ -5,7 +5,7 @@ configfile: 'crispr/config.yaml'
 
 ### These are gonna go into the config file at some Point
 VIRALGENOMES="04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.bins.fna"
-MAGTAXONOMI="07_binannotation/bacteria/gtdbtk/mag_taxonomy.txt"
+MAGTAXONOMY="07_binannotation/bacteria/gtdbtk/mag_taxonomy.txt"
 VAMBDIR= config["vambdir"]
 CHECKVDIR= config["checkvdir"]
 
@@ -38,7 +38,6 @@ rule target:
         "08_crisprcas/crispr_prophage_results/FASTANI_host_predictions.tsv"
 
 
-
 ### This one Produces a directory of files
 rule CRISPRCAS:
     input:
@@ -57,11 +56,18 @@ rule CRISPRCAS:
         touch {output.tmp}
         """
 
+
+### Map de-novo predicted spacers and also Refseq
+### Refseq spacers from https://crisprcas.i2bc.paris-saclay.fr/Home/Download 
+
 rule spacer_blastn:
     input:
         viralbins = VIRALGENOMES
     output:
-        blastfile = "07_binannotation/bacteria/snakecrisprcasfinder/new.spacers.viralfragment.m6"
+        blastfile = "07_binannotation/bacteria/snakecrisprcasfinder/new.spacers.viralfragment.m6",
+        refblastfile = "07_binannotation/bacteria/snakecrisprcasfinder/RefseqNT.spacers.viralfragment.m6"
+    params:
+        refseq_spacers = "../databases/crisprcas/20210121_spacer_34.fasta"
     threads: THREADS
     envmodules:
         "tools",
@@ -70,16 +76,24 @@ rule spacer_blastn:
     shell:
         """
         cat 07_binannotation/bacteria/snakecrisprcasfinder/*/spacers/*fa > 07_binannotation/bacteria/snakecrisprcasfinder/all.spacers.fna
-
         makeblastdb -in {input.viralbins} -dbtype nucl
         blastn -task blastn-short -evalue 0.001 \
-        -perc_identity 90 \
+        -perc_identity 95 \
         -num_threads {threads} \
         -db {input.viralbins} \
         -query 07_binannotation/bacteria/snakecrisprcasfinder/all.spacers.fna \
         -out {output.blastfile} \
         -outfmt '6 std qlen slen'
+
+`       blastn -task blastn-short -evalue 0.001 \
+        -perc_identity 95 \
+        -num_threads {threads} \
+        -db {input.viralbins} \
+        -query {params.refseq_spacers} \
+        -out {output.refblastfile} \
+        -outfmt '6 std qlen slen'
         """
+
 
 ### We also need to Run Both Blastn & FastANI, this does However Require that CheckV Has been RUn 
 
@@ -169,9 +183,9 @@ rule MAG_Viral_connections:
     params:
         VAMBDIR = VAMBDIR,
         CHECKVDIR = CHECKVDIR,
-        MAGTAXONOMI = MAGTAXONOMI,
+        MAGTAXONOMY = MAGTAXONOMY,
     shell:
         """
-        python crispr/scripts/crispr_prophage_summary.py -c {params.CHECKVDIR} -g {params.MAGTAXONOMI} -v {params.VAMBDIR}
+        python crispr/scripts/crispr_prophage_summary.py -c {params.CHECKVDIR} -g {params.MAGTAXONOMY} -v {params.VAMBDIR}
         """
 
