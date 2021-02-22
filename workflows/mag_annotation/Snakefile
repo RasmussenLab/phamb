@@ -49,9 +49,8 @@ rule PRODIGAL:
     params:
         walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
     threads: 1
-    envmodules:
-        "tools",
-        "prodigal/2.6.3"
+    conda:
+        "envs/prodigal.yaml"
     log:
         "magannotation_log/prodigal/{sample}.prodigal.log"
     shell:

@@ -292,11 +292,9 @@ def splitcontigs_to_samples(fasta_file,directory_out):
 
 if __name__ == "__main__":
     args = parse_arguments()
-    splitcontigs_to_samples('contigs.fna.gz','assembly')
+    splitcontigs_to_samples(args.c,'assembly')
 
-
-
-    with Reader('contigs.fna.gz', 'rb') as fastafile:
+    with Reader(args.c, 'rb') as fastafile:
             contignames, lengths_arr = read_contigs(fastafile, minlength=2000)
 
     write_npz('contigs.npz',contignames)

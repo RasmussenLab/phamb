@@ -11,8 +11,9 @@ conda install -n snakemake snakemake pygraphviz python=3.8
 ```
 
 
-## MAG annotation 
-NB: Requires:
+## MAG annotation for isolating Viral bins  
+
+### Requirements
 VAMB bins and concatenated assemblies. 
 
 ```
@@ -20,22 +21,56 @@ contigs.fna.gz #Concatenated assembly
 vamb/clusters.tsv   #Clustered contigs based on the above contigs.fna.gz file 
 ```
 
+Furthermore. 
+* VOGdb (https://vogdb.csb.univie.ac.at/download) - untar `vog.hmm.tar.gz` to get `AllVOG.hmm` 
+* Micomplete Bacterial HMMs (https://bitbucket.org/evolegiolab/micomplete/src/master/micomplete/share/Bact105.hmm)
 
 
-- Annotation of proteins from assembled contigs, including:
-    - PVOG 
-    - DeepVirFinder score for each contig
-    - Bacterial Hallmark annotation from MiComplete 
-- Bin-wise annotation summaries used as input for Viral Decontamination Random Forrest model
+### How to Run 
 
-i.e.
-Using relatively few variables automates filtering of contigs belonging to metagenomic bins that are NOT likely bacterial and therefore plausible viral/others.
+```
+mkdir -p projectdir 
+cd projectdir 
+git clone https://github.com/RasmussenLab/phamb.git
+cp phamb/workflows/mag_annotation .
+python mag_annotation/scripts/split_contigs.py -c contigs.fna.gz 
 
+### Check that sample_table.txt contains sample identifiers corresponding the ones you expect
+### The number of lines should correspond to the number of samples used to make the concatenated assembly
+```
+
+Specify paths for databases, vamb directory, location of assembly  and computational resouces in `mag_annotation/config.yaml`  
+
+
+If everything good and set, you can run the snakemake pipeline.
+```
+# Local 
+snakemake -s mag_annotation/Snakefile --use-conda 
+```
+
+```
+# HPC - this won't work unless you specify a legit group on your HPC in `config.yaml`
+snakemake -s Snakefile --cluster qsub -j 32 --use-conda 
+
+```
+
+
+### Workflow content
+The workflow does the following. 
+1. Splits the combined assembly into separate sample-specific ones 
+2. Predicts proteins de novo using Prodigal meta
+3. Searches proteins with VOGdb (PVOG) and miComplete bacterial hallmarks db 
+4. Scans each contig using DeepVirFinder  
+5. Aggregates the above into Bin-wise annotation summaries used as input for Viral Decontamination Random Forrest model
+
+By the end of the day, what goes on is pretty straight forward. Using relatively few variables, the RF automates filtering of VAMB bins that are most likely bacterial and there provides a space of plausible viral/plasmid entities for further validation. The RF-model has been trained on paired Metaviromes and Metagenomes to make precisde decisions based on simple parameteres as the ones below. 
 
 | binsize (bp) | nhallm | nVOGs | cluster_DVF_score |
 |--------------|--------|-------|-------------------|
 | 2.000.000    | 100    | 0.2   | 0.3               |
 | 60.000       | 3      | 1.3   | 0.7               |
+
+Why does this work so well? Aggregated information (assuming the binning is really good!) from multiple-contigs simplifies prediction compared to single-contigs.
 
 
 ## reads to bins - If you are starting from Scratch with metagenomes or metaviromes 
