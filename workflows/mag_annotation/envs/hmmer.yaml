@@ -1,6 +1,7 @@
-name: python
+name: hmmer
 channels:
    - bioconda
    - conda-forge
+   - defaults
 dependencies:
-   - python=3.8
+   - hmmer=3.2.1

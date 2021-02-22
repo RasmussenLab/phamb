@@ -1,5 +1,5 @@
 # phamb
-A Phage discovery approach through binning of Metagenomic derived contigs 
+A Phage discovery approach through binning of Metagenomic derived contigs. Most snakemake workflows comes with conda-environments, thus dependencies and programmes are automatcally installed. 
 
 ## Prerequisites - Snakemake 
 
@@ -11,7 +11,34 @@ conda install -n snakemake snakemake pygraphviz python=3.8
 ```
 
 
-## reads to bins - Snakemake pipeline 
+## MAG annotation 
+NB: Requires:
+VAMB bins and concatenated assemblies. 
+
+```
+contigs.fna.gz #Concatenated assembly 
+vamb/clusters.tsv   #Clustered contigs based on the above contigs.fna.gz file 
+```
+
+
+
+- Annotation of proteins from assembled contigs, including:
+    - PVOG 
+    - DeepVirFinder score for each contig
+    - Bacterial Hallmark annotation from MiComplete 
+- Bin-wise annotation summaries used as input for Viral Decontamination Random Forrest model
+
+i.e.
+Using relatively few variables automates filtering of contigs belonging to metagenomic bins that are NOT likely bacterial and therefore plausible viral/others.
+
+
+| binsize (bp) | nhallm | nVOGs | cluster_DVF_score |
+|--------------|--------|-------|-------------------|
+| 2.000.000    | 100    | 0.2   | 0.3               |
+| 60.000       | 3      | 1.3   | 0.7               |
+
+
+## reads to bins - If you are starting from Scratch with metagenomes or metaviromes 
 A series of pipeline steps that runs the following on a metagenomic dataset of choice
 - QC
 - Assembly
@@ -24,25 +51,6 @@ Most necessary requirements are packed into Conda-environments, some are not cur
 ```
 snakemake -s crispr/Snakefile -j --use-conda --use-envmodules
 ```
-
-
-## MAG annotation 
-NB: Requires VAMB bins and assemblies etc. from above 
-
-- Annotation of proteins from assembled contigs, including:
-    - PVOG 
-    - DeepVirFinder score for each contig
-    - Bacterial Hallmark annotation
-- Bin-wise annotation summaries used as input for Viral Decontamination
-
-i.e.
-Using relatively few variables automates filtering of contigs belonging to metagenomic bins that are NOT likely bacterial and therefore plausible viral/others.
-
-
-| binsize (bp) | nhallm | nVOGs | cluster_DVF_score |
-|--------------|--------|-------|-------------------|
-| 2.000.000    | 100    | 0.2   | 0.3               |
-| 60.000       | 3      | 1.3   | 0.7               |
 
 ## CRISPR
 - Using CRISPR-cas-typer (CCtyper) to extract CRISPR-arrays from MAGs generated using VAMB
