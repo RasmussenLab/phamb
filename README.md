@@ -32,14 +32,17 @@ Furthermore.
 mkdir -p projectdir 
 cd projectdir 
 git clone https://github.com/RasmussenLab/phamb.git
-cp phamb/workflows/mag_annotation .
+cp -r phamb/workflows/mag_annotation .
 python mag_annotation/scripts/split_contigs.py -c contigs.fna.gz 
 
-### Check that sample_table.txt contains sample identifiers corresponding the ones you expect
-### The number of lines should correspond to the number of samples used to make the concatenated assembly
 ```
 
-Specify paths for databases, vamb directory, location of assembly  and computational resouces in `mag_annotation/config.yaml`  
+Now the `contigs.fna.gz` is splitted into individual assemblies i.e. `assembly/{sample}/{sample}.fna`
+In addition, a `sample_table.txt` file is created with a line for each sample.
+Check that `sample_table.txt` contains sample identifiers corresponding to the ones you expect. 
+The number of lines should correspond to the number of samples used to make the concatenated assembly
+
+Now, Specify paths for databases, vamb directory, location of assembly  and computational resouces in `mag_annotation/config.yaml`  
 
 
 If everything good and set, you can run the snakemake pipeline.
