@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 
 import argparse
 import os
 import sys
+import gzip
 import numpy as np
 import pandas as pd
-import pathlib
 import joblib
 from sklearn.ensemble import RandomForestClassifier
 from Bio import SeqIO
@@ -89,8 +89,6 @@ class bin_annotation:
         self.bin_name = bin_name
         self.ncontigs = None
         self.binsize = 0
-     
-
 
 ### Initialising functions
 
@@ -148,33 +146,39 @@ def parse_sample_table(args):
             line = line.strip().split()
             sample = line[0]
             samples[sample] = sample
+    
+    if len(samples) < 2:
+        print('Ups! Are you missing samples in your sample_table.txt??? This method works best with >1 samples')
+        sys.exit(1)
+
     return(samples)
 
 def read_in_clusters(args):
-    cluster_file = os.path.join(args.v,'clusters.tsv')
-    contig_lengths_file = os.path.join(args.v,'contig_lengths.npz')
-    contig_file = os.path.join(args.v,'contigs.npz')
+    '''
+    Parse VAMB cluster file - fits with VAMB v3 output.  
+    This programme expects the structure to be: 
+
+    binid\tcontigname
+    '''
+    cluster_file = os.path.join(args.vamb_directory,'clusters.tsv')
+    contig_lengths_file = os.path.join('contig_lengths.npz')
+    contig_file = os.path.join('contigs.npz')
     contigs = np.load(contig_file)['arr_0']
     contig_lengths = np.load(contig_lengths_file)['arr_0']
-
     contig_length_lookup = {contigs[i]:contig_lengths[i] for i in range(len(contigs))}
-    
-    
     print('Reading in Clusters, this may take a while...')
     binsannos = dict()
     cls = dict()
     with open(cluster_file,'r') as infile:
         for line in infile:
             line = line.strip().split('\t')
-            cluster, contig = line[0],line[1]
-            sample = contig.split('_')[0]
-            binid = sample + '_' + cluster
+            binid, contig = line[0],line[1]
+            sample, cluster = binid.split('C')
             contiglength = contig_length_lookup[contig]
             if binid not in binsannos:
                 binsannos[binid] = bin_annotation(binid,cluster)
                 binsannos[binid].ncontigs = 1
                 binsannos[binid].binsize += contiglength
-
             else:
                 binsannos[binid].ncontigs += 1
                 binsannos[binid].binsize += contiglength
@@ -193,9 +197,7 @@ def parse_hmmfiles(args,task_list,samples):
     for hmm in ['hmmMiComplete105','hmmVOG']:
         if hmm not in task_list:
             continue
-
         cleaned_hmmfile_out = os.path.join(args.outdir,hmm+'.allsamples.txt')
-
         with open(cleaned_hmmfile_out,'w') as outfile:
             for sample in samples:
                 hmmfile = os.path.join(args.annotation_dir,sample,sample+'.'+hmm+'.tbl') 
@@ -247,7 +249,7 @@ def parse_DVF(args,task_list,samples):
             for sample in samples:
                 #dvffile = os.path.join(args.annotation_dir,sample,sample + '_dvf',sample + '.flt.fa_gt' + args.minimum_length + 'bp_dvfpred.txt')
                 dvfdir = os.path.join(args.annotation_dir,sample,sample + '_dvf')
-                dvffiles = [f for f in os.listdir(dvfdir) if os.path.isfile(os.path.join(dvfdir, f))]
+                dvffiles = [f for f in os.listdir(dvfdir) if os.path.isfile(os.path.join(dvfdir, f)) and 'dvfpred' in f]
                 if len(dvffiles) == 0:
                     print('DVF does not exist for sample: {}'.format(sample))
                     continue
@@ -301,9 +303,7 @@ def parse_bacterial_hallmarks(args, cls):
     '''
     Count the number of Distinct Bacterial Hallmark Genes in each Cluster
     '''
-
     hallmark_file = os.path.join(args.outdir,'hmmMiComplete105.allsamples.txt')
-
     cluster_hallmarks = dict()
     with open(hallmark_file,'r') as infile:
         for line in infile:
@@ -316,7 +316,6 @@ def parse_bacterial_hallmarks(args, cls):
                     cluster_hallmarks[cluster] = set([hallmark_gene])
                 else:
                     cluster_hallmarks[cluster].add(hallmark_gene)
-    
     cluster_hallmark_count = dict()
     for cluster in cluster_hallmarks:
         n_distinct_hallmarks = len(cluster_hallmarks[cluster])
@@ -410,7 +409,7 @@ def aggregate_bin_annotation(args,cls,binsannos):
     bin_vog_count = parse_PVOG_hits(args,cls,binsannos)
 
     print('Parsing DVF contig scores - this may take some timee...')
-    bin_median_DVF, cluster_median_DVF = parse_DVF_preds(args,cls)
+    bin_median_dvf, cluster_median_dvf = parse_DVF_preds(args,cls)
 
     ### Write out table with aggregated information for each Bin
     fileout = os.path.join(args.outdir,'vambbins_aggregated_annotation.txt')
@@ -448,15 +447,15 @@ def aggregate_bin_annotation(args,cls,binsannos):
             else:
                 nVOGs = bin_vog_count[binid]
             
-            if binid not in bin_median_DVF:
+            if binid not in bin_median_dvf:
                 bin_DVF_score = 0
             else:
-                bin_DVF_score = bin_median_DVF[binid]
+                bin_DVF_score = bin_median_dvf[binid]
             
-            if mothercluster not in cluster_median_DVF:
+            if mothercluster not in cluster_median_dvf:
                 cluster_DVF_score = 0
             else:
-                cluster_DVF_score = cluster_median_DVF[mothercluster]
+                cluster_DVF_score = cluster_median_dvf[mothercluster]
 
             ### 
             lineout += [ncontigs,binsize, mothercluster, nhallmarks, round(nVOGs,2), round(bin_DVF_score,2),round(cluster_DVF_score,2)]
@@ -479,7 +478,7 @@ def write_concate_sequences(args,cls,_vambbins_filtered):
     print('Parsing Fasta sequences - this may take a while...')
     clusters = {}
     with open(viral_contigs_out,'w') as out:
-        for record in SeqIO.parse(open(args.fasta, 'r'), 'fasta'):
+        for record in SeqIO.parse(gzip.open(args.fasta, 'rt'), 'fasta'):
             contigname = record.id 
             if contigname not in cls:
                 continue
@@ -499,8 +498,6 @@ def write_concate_sequences(args,cls,_vambbins_filtered):
             out.write('>{}\n{}\n'.format(binid,sequence))
 
 
-
-
 def RF_decontaminate(args):
 
     table_file = os.path.join(args.outdir,'vambbins_aggregated_annotation.txt')
@@ -509,12 +506,12 @@ def RF_decontaminate(args):
         sys.exit(1)
 
     print('Loading Model and annotation table')
-    trained_model = joblib.load('dbs/RF_model.sav')
+    trained_model = joblib.load('mag_annotation/dbs/RF_model.sav')
     _vambbins = pd.read_csv(table_file,sep='\t')
     _subset = _vambbins[['binsize','nhallm','nVOGs','cluster_DVF_score']]
     eval_predictions = trained_model.predict(_subset)
-    _vambbins['Prediction'] = eval_predictions
-
+    prediction_labels = np.where(eval_predictions == 0,'Bacterial','Viral')
+    _vambbins['Prediction'] = prediction_labels
     _vambbins_filtered = _vambbins[ (_vambbins.Prediction =='Viral') & (_vambbins.nVOGs >= 1) & (_vambbins.cluster_DVF_score >= 0.3) ]
     
     table_file_annotated = os.path.join(args.outdir,'vambbins_aggregated_annotation.Viral.txt')
@@ -529,21 +526,6 @@ def RF_decontaminate(args):
     ### Write out contigs and Bins concatenated
     write_concate_sequences(args,cls,_vambbins_filtered)
     print('Done Writing Viral Sequences!')
-
-
-
-    
-    
-    
-
-
-
-
-
-
-
-
-
 
 
 
@@ -581,17 +563,5 @@ if __name__ == "__main__":
     
     if 'Decontaminate' in task_list:
         print('Running RF - decontaminate')
-        RF_decontaminate(args)
-        
-
-
-
-
-
-
-         
-         
-
-
-
+        #RF_decontaminate(args)
 

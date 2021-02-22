@@ -1,5 +1,6 @@
 MICOMPLETEDB:   'Bact105.hmm'
 VOGDB:  'AllVOG.hmm'
+DVFDIR: ''
 cluster_project:  ''
 tmpdir: 'mag_annotation_tmp'
 contig_suffix:  '.fna'

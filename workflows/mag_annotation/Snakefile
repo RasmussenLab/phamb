@@ -9,6 +9,10 @@ configfile: 'mag_annotation/config.yaml'
 ### Config
 MICOMPLETEDB = config.get("MICOMPLETEDB")
 VOGDB= config.get("VOGDB")
+DVFDIR = config.get("DVFDIR")
+DVFDIR = '/home/projects/cpr_10006/projects/phamb/tools/DeepVirFinder'
+
+
 PROJECT = config.get("cluster_project") # Who's paying for running this Flow on a Server-cluster?
 TMP_DIR = config.get("tmpdir")
 CONTIGSUFFIX = '.fna'
@@ -94,8 +98,9 @@ rule DeepVirFinder:
     input:
         contigs = "assembly/{sample}/{sample}" + CONTIGSUFFIX
     output:
-        dvffile = directory("sample_annotation/{sample}/{sample}" + CONTIGSUFFIX + "_gt2000bp_dvfpred.txt")
+        dvffile = directory("sample_annotation/{sample}/{sample}_dvf")
     params:
+        dvfscript = os.path.join(DVFDIR,'dvf.py'),
         walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
     threads: 24
     conda:
@@ -103,27 +108,30 @@ rule DeepVirFinder:
     log:
         "magannotation_log/DVF/{sample}.dvf.log"
     shell:
-        "python /home/projects/cpr_10006/projects/phamb/tools/DeepVirFinder/dvf.py "
-        "-i {input.contigs} -o {output.dvffile} -l 2000 -c {threads} 2>{log}"
+        """
+        python {params.dvfscript} -i {input.contigs} -o {output.dvffile} -l 2000 -c {threads} 2>{log}
+        """
 
-#   rule summarise_annotations:
-#       input:
-#           vambdir = VAMBDIR,
-#           sample_table = sample_table,
-#           annotation_directory = "bin_annotation",
-#           combined_assembly = ASSEMBLY
-#       output:
-#           outdir = directory( "sample_annotation/annotation_summaries" ),
-#           "sample_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.bins.fna",
-#           "sample_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.contigs.fna",
-#           "sample_annotation/annotation_summaries/vambbins_aggregated_annotation.txt",
-#           "sample_annotation/annotation_summaries/vambbins_aggregated_annotation.Viral.txt"
-#       shell:
-#           """
-#           python scripts/parse_annotation.py -v {input.vambdir} \
-#           -s {input.sample_table} \
-#           -a {input.annotation_directory} \
-#           -o {output.outdir} \
-#           --fasta {input.combined_assembly \
-#           --decontaminate
-#           """
+rule summarise_annotations:
+    input:
+        vambdir = VAMBDIR,
+        sample_table = sample_table,
+        annotation_directory = "mag_bin_annotation",
+        combined_assembly = "contigs.fna.gz"
+    output:
+        outdir = directory( "sample_annotation/annotation_summaries" ),
+        "sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna",
+        "sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.contigs.fna",
+        "sample_annotation/annotation_summaries/vambbins_aggregated_annotation.txt",
+        "sample_annotation/annotation_summaries/vambbins_aggregated_annotation.Viral.txt"
+    conda:
+        "envs/RF.yaml"
+    shell:
+        """
+        python mag_annotation/scripts/parse_annotation_minimal.py -v {input.vambdir} \
+        -s {input.sample_table} \
+        -a {input.annotation_directory} \
+        -o {output.outdir} \
+        --fasta {input.combined_assembly \
+        --decontaminate
+        """

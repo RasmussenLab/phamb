@@ -22,8 +22,9 @@ vamb/clusters.tsv   #Clustered contigs based on the above contigs.fna.gz file
 ```
 
 Furthermore. 
-* VOGdb (https://vogdb.csb.univie.ac.at/download) - untar `vog.hmm.tar.gz` to get `AllVOG.hmm` 
-* Micomplete Bacterial HMMs (https://bitbucket.org/evolegiolab/micomplete/src/master/micomplete/share/Bact105.hmm)
+* VOGdb (https://vogdb.csb.univie.ac.at/download) - untar `vog.hmm.tar.gz` to get `AllVOG.hmm`    [File needs to be specified in `config.yaml`]
+* Micomplete Bacterial HMMs (https://bitbucket.org/evolegiolab/micomplete/src/master/micomplete/share/Bact105.hmm)   [File needs to be specified in `config.yaml`]
+* Clone DeepVirFinder (git clone https://github.com/jessieren/DeepVirFinder) 
 
 
 ### How to Run 
