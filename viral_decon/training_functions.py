@@ -40,8 +40,8 @@ def read_in_clusters(cluster_file):
 
 def parse_MVX_hits(MVX_file,clusters,bin_annotations,seqid=95,coverage = 0.5, NC_MVX=False ):
     '''
-    Calculate How many Contigs in each bin with hits to IMGVR genomes
-    Also keep track of how covered each MVX contig is by MGX genomes
+    Calculate sequence coverage of each MVX genome/sequence by each MGX bin 
+    Also keep track of how many contigs in a MGX bin maps to the given MVX sequence.
     '''
     MVX_genomes_coverage = dict()
     bin_MVXhits = dict()
@@ -106,11 +106,9 @@ def prepare_train_test_set(vamb_bins_file,clusters_file,MVX_blast_file,checkm_fi
     - Viral if 95% of all contigs in MGX bin maps to an MVX genome with minimum 95% sequence identity and minimum 50% query sequence coverage.
     '''
     vambbins_df = pd.read_csv(vamb_bins_file,sep='\t')
-
-    ### Assign Bacterial Labels
     LABEL = ['NA' for i in range(vambbins_df.shape[0])]
 
-    # Using CHECKM
+    ### Assign Bacterial Labels using CheckM result
     MQNC_bins = set()
     with open(checkm_file,'r') as infile:
         for line in infile:
@@ -128,41 +126,30 @@ def prepare_train_test_set(vamb_bins_file,clusters_file,MVX_blast_file,checkm_fi
 
     ### Bacterial first
     for i,binid in enumerate(vambbins_df['binid']):
-        LABEL[i] = 'Bacterial'
         if binid in MQNC_bins:
             LABEL[i] = 'Bacterial'
     
     ### Viral     
     clusters, binsannos = read_in_clusters(cluster_file = clusters_file)
-    bin_MVX_fraction,MVX_genome_df = parse_MVX_hits(MVX_blast_file, clusters, binsannos)
-    #bin_MVX_fraction,MVX_genome_df = parse_MGXMVX_fastani(fastani_file,cls)
-    
+    bin_MVX_fraction,MVX_genome_df = parse_MVX_hits(MVX_blast_file, clusters, binsannos)    
     nhallm_dict = dict(zip(vambbins_df.binid, vambbins_df.nhallm))
     VOG_dict = dict(zip(vambbins_df.binid, vambbins_df.nVOGs))
     DVF_dict = dict(zip(vambbins_df.binid, vambbins_df.cluster_DVF_score))
-    extra_viral = 0
     for i,binid in enumerate(vambbins_df['binid']):
         if binid in bin_MVX_fraction:
             mvx_score = bin_MVX_fraction[binid]
-            nhallm = nhallm_dict[binid]
-            vog = VOG_dict[binid]
-            dvf = DVF_dict[binid]
-            if mvx_score >= 0.35:
+            if mvx_score >= 0.95:
                 LABEL[i] = 'Viral'
             
     ### Remove all bins without an Annotation
     vambbins_df['LABEL'] = LABEL
-
     vambbins_df_subset = vambbins_df[['binid','binsize','nhallm','nVOGs','cluster_DVF_score','LABEL']]
-    viral_mask = list( (vambbins_df_subset.LABEL=='NA') & (vambbins_df_subset.nhallm==0) & (vambbins_df_subset.nVOGs >0) & (vambbins_df_subset.cluster_DVF_score >0.5) )
-    vambbins_df_subset.loc[viral_mask,'LABEL'] = 'Viral'
     bacterial_mask = list( (vambbins_df_subset.LABEL=='NA') & (vambbins_df_subset.nhallm>95) )
     vambbins_df_subset.loc[bacterial_mask,'LABEL'] = 'Bacterial'
     vambbins_df_subset = vambbins_df_subset[vambbins_df_subset.LABEL!='NA']
     labels = list(vambbins_df_subset.LABEL)
 
-    # 60% of Data for the test
-    ### Make super basic RF model
+    # Split 60% of annotated bins into test and 40% for the test
     train, test, train_labels, test_labels = train_test_split(vambbins_df_subset, labels, 
                                                           stratify = labels,
                                                           test_size = 0.6, 
