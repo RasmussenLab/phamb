@@ -25,7 +25,7 @@ GTDBTKREF = config.get('GTDBK_reference')
 ###  Cluster Execution 
 # The variables: walltime, nodes, ppn, mem and project are only relevant when submitting the Snake-flow as Cluster execution 
 # i.e. snakemake -s mag_annotation/Snakefile --use-conda --use-envmodules
-# i.e. snakemake -s Snakefile --cluster qsub -j 32 --use-conda --use-envmodules
+# i.e. snakemake -s Snakefile qsub -j 32 --use-conda --cluster "qsub -e {logs_mag_annotation} -o {logs_mag_annotation}"
 ###
 
 
@@ -41,7 +41,8 @@ rule all:
     input:
         expand("sample_annotation/{sample}/{sample}.hmmMiComplete105.tbl", sample=IDS),
         expand("sample_annotation/{sample}/{sample}.hmmVOG.tbl", sample=IDS),
-        directory(expand("sample_annotation/{sample}/{sample}" + CONTIGSUFFIX + "_gt2000bp_dvfpred.txt", sample=IDS))
+        directory(expand("sample_annotation/{sample}/{sample}_dvf", sample=IDS)),
+        "sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna.gz"
 
 
 rule PRODIGAL:
@@ -51,7 +52,7 @@ rule PRODIGAL:
         proteins = "sample_annotation/{sample}/{sample}.predicted_proteins.faa",
         genes = "sample_annotation/{sample}/{sample}.predicted_proteins.fna"
     params:
-        walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
+        walltime="18000", nodes="1", ppn="1", mem="5gb", project=PROJECT
     threads: 1
     conda:
         "envs/prodigal.yaml"
@@ -68,7 +69,7 @@ rule miComplete:
         hmmfile = "sample_annotation/{sample}/{sample}.hmmMiComplete105.tbl"
     params:
         tmpoutput = "sample_annotation/{sample}/{sample}.micomplete.tmp",
-        walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
+        walltime="18000", nodes="1", ppn="1", mem="5gb", project=PROJECT
     threads: 1
     conda:
         "envs/hmmer.yaml"
@@ -85,8 +86,8 @@ rule VOG:
         hmmfile = "sample_annotation/{sample}/{sample}.hmmVOG.tbl"
     params:
         tmpoutput = "sample_annotation/{sample}/{sample}.hmmVOG.tmp",
-        walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
-    threads: 24
+        walltime="18000", nodes="1", ppn="1", mem="5gb", project=PROJECT
+    threads: 1
     conda:
         "envs/hmmer.yaml"
     log:
@@ -101,8 +102,8 @@ rule DeepVirFinder:
         dvffile = directory("sample_annotation/{sample}/{sample}_dvf")
     params:
         dvfscript = os.path.join(DVFDIR,'dvf.py'),
-        walltime="9600", nodes="1", ppn="1", mem="5gb", project=PROJECT
-    threads: 24
+        walltime="18000", nodes="1", ppn="1", mem="10gb", project=PROJECT
+    threads: 1
     conda:
         "envs/dvf.yaml"
     log:
@@ -120,10 +121,7 @@ rule summarise_annotations:
         combined_assembly = "contigs.fna.gz"
     output:
         outdir = directory( "sample_annotation/annotation_summaries" ),
-        "sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna",
-        "sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.contigs.fna",
-        "sample_annotation/annotation_summaries/vambbins_aggregated_annotation.txt",
-        "sample_annotation/annotation_summaries/vambbins_aggregated_annotation.Viral.txt"
+        "sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna.gz",
     conda:
         "envs/RF.yaml"
     shell:
@@ -134,4 +132,7 @@ rule summarise_annotations:
         -o {output.outdir} \
         --fasta {input.combined_assembly \
         --decontaminate
+
+        gzip sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna
+        gzip sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.contigs.fna
         """

@@ -35,7 +35,6 @@ rule all:
         expand("01_qced/{sample}.R2.fastq.gz", sample=IDS),
         expand("02_assembly/{sample}/{sample}.contigs.flt.fa.gz", sample=IDS),
         expand("03_mapping/{sample}.bam", sample=IDS),
-        #expand("03_mappingcoverage/{sample}.position.zero.coverage", sample=IDS),
         "05_binning/vamb/clusters.tsv",
         "05_binning/vamb/checkm/checkm.results.txt",
         '05_binning/vamb/gtdbtk'
@@ -70,6 +69,8 @@ rule QCfastq:
         "fastqc/0.11.5",
         "bowtie2/2.3.2",
         "pigz/2.3.4"
+    container:
+        "biobakery/kneaddata"
     shell:
         """  
         echo `date` Starting QC 

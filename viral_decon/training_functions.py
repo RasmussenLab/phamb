@@ -128,6 +128,7 @@ def prepare_train_test_set(vamb_bins_file,clusters_file,MVX_blast_file,checkm_fi
 
     ### Bacterial first
     for i,binid in enumerate(vambbins_df['binid']):
+        LABEL[i] = 'Bacterial'
         if binid in MQNC_bins:
             LABEL[i] = 'Bacterial'
     
@@ -139,7 +140,7 @@ def prepare_train_test_set(vamb_bins_file,clusters_file,MVX_blast_file,checkm_fi
     nhallm_dict = dict(zip(vambbins_df.binid, vambbins_df.nhallm))
     VOG_dict = dict(zip(vambbins_df.binid, vambbins_df.nVOGs))
     DVF_dict = dict(zip(vambbins_df.binid, vambbins_df.cluster_DVF_score))
-    extra_viral =0
+    extra_viral = 0
     for i,binid in enumerate(vambbins_df['binid']):
         if binid in bin_MVX_fraction:
             mvx_score = bin_MVX_fraction[binid]
@@ -269,7 +270,7 @@ def return_DVF_table(cluster_file, DVF_predictions_file, labelled_bins):
     '''Function to parse DVF predictions for single contigs
        This is used for assessing performance of Viral prediction if it was conducted without Bins
     '''
-    clusters, binasannos = read_in_clusters(cluster_file)
+    clusters, binsannos = read_in_clusters(cluster_file)
     DVF_table = []
     
     ### Parse DVF predictions

@@ -11,7 +11,7 @@ conda install -n snakemake snakemake pygraphviz python=3.8
 ```
 
 
-## MAG annotation for isolating Viral bins  
+## MAG annotation for isolating Metagenomic derived viromes
 
 ### Requirements
 VAMB bins and concatenated assemblies. 
@@ -22,13 +22,14 @@ vamb/clusters.tsv   #Clustered contigs based on the above contigs.fna.gz file
 ```
 
 Furthermore. 
-* VOGdb (https://vogdb.csb.univie.ac.at/download) - untar `vog.hmm.tar.gz` to get `AllVOG.hmm`    [File needs to be specified in `config.yaml`]
-* Micomplete Bacterial HMMs (https://bitbucket.org/evolegiolab/micomplete/src/master/micomplete/share/Bact105.hmm)   [File needs to be specified in `config.yaml`]
-* Clone DeepVirFinder (git clone https://github.com/jessieren/DeepVirFinder) 
+* VOGdb[https://vogdb.csb.univie.ac.at/download] - untar `vog.hmm.tar.gz` to get `AllVOG.hmm`    [File path needs to be specified in `config.yaml`]
+* Micomplete Bacterial HMMs[https://bitbucket.org/evolegiolab/micomplete/src/master/micomplete/share/Bact105.hmm]   [File path needs to be specified in `config.yaml`]
+* Clone DeepVirFinder[https://github.com/jessieren/DeepVirFinder] git clone https://github.com/jessieren/DeepVirFinder
 
 
 ### How to Run 
 
+Copy repository, extract the `mag_annotation` workflow and split contigs to allow annotation to be run in parallel.
 ```
 mkdir -p projectdir 
 cd projectdir 
@@ -49,15 +50,14 @@ Now, Specify paths for databases, vamb directory, location of assembly  and comp
 If everything good and set, you can run the snakemake pipeline.
 ```
 # Local 
-snakemake -s mag_annotation/Snakefile --use-conda 
+snakemake -s mag_annotation/Snakefile --use-conda -j 1
 ```
 
+Dependent on the number of samples, it may be relevant to run the Snake-flow on a HPC server.
 ```
 # HPC - this won't work unless you specify a legit group on your HPC in `config.yaml`
 snakemake -s Snakefile --cluster qsub -j 32 --use-conda 
-
 ```
-
 
 ### Workflow content
 The workflow does the following. 
@@ -77,7 +77,25 @@ By the end of the day, what goes on is pretty straight forward. Using relatively
 Why does this work so well? Aggregated information (assuming the binning is really good!) from multiple-contigs simplifies prediction compared to single-contigs.
 
 
-## reads to bins - If you are starting from Scratch with metagenomes or metaviromes 
+### Outputs
+Eventually the following key fasta-files are produced along with the table `vambbins_aggregated_annotation.txt` with information about each Bin.    
+```bash
+sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna.gz
+sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.contigs.fna.gz
+```
+ 
+The `VAMB.Viral_RF_predictions.bins.fna.gz` file provides the concatenated-assemblies of VAMB bins while the `VAMB.Viral_RF_predictions.contigs.fna.gz` contains the individual contigs
+
+Both files can be evaluated with dedicated Viral evaluation tools like Virsorter2[https://github.com/jiarong/VirSorter2] or CheckV[https://bitbucket.org/berkeleylab/checkv/src/master/] to identify HQ assembies.
+
+i.e. 
+```
+checkv end_to_end VAMB.Viral_RF_predictions.bins.fna.gz` checkv_vamb_bins  
+```
+
+
+
+## Other Workflows provided here - If you are starting from Scratch with metagenomes or metaviromes 
 A series of pipeline steps that runs the following on a metagenomic dataset of choice
 - QC
 - Assembly
@@ -96,10 +114,10 @@ snakemake -s crispr/Snakefile -j --use-conda --use-envmodules
 - Alignment of putative Viruses to MAGs
 - Summarise Viral-MAG connections
 
-## CHECKV (Work in progress)
+## CHECKV annotation and viral proteomes
 Code for parsing checkV output files and annotating MQ/NC viral bins with taxonomical and functional annotation
 
 ## MAG VMAG Abundance 
-Code for making abundance matrices of MAGs and Viruses (validated with CheckV)
+Code for making abundance matrices of MAGs and Viruses
 
 
