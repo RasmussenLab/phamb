@@ -1,6 +1,7 @@
-name: python
+name: prodigal
 channels:
    - bioconda
    - conda-forge
+   - defaults
 dependencies:
-   - python=3.8
+   - prodigal=2.6.3

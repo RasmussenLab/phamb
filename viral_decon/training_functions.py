@@ -1,5 +1,5 @@
 from sklearn.model_selection import train_test_split
-import pyplot
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import sys 
@@ -128,6 +128,7 @@ def prepare_train_test_set(vamb_bins_file,clusters_file,MVX_blast_file,checkm_fi
 
     ### Bacterial first
     for i,binid in enumerate(vambbins_df['binid']):
+        LABEL[i] = 'Bacterial'
         if binid in MQNC_bins:
             LABEL[i] = 'Bacterial'
     
@@ -139,7 +140,7 @@ def prepare_train_test_set(vamb_bins_file,clusters_file,MVX_blast_file,checkm_fi
     nhallm_dict = dict(zip(vambbins_df.binid, vambbins_df.nhallm))
     VOG_dict = dict(zip(vambbins_df.binid, vambbins_df.nVOGs))
     DVF_dict = dict(zip(vambbins_df.binid, vambbins_df.cluster_DVF_score))
-    extra_viral =0
+    extra_viral = 0
     for i,binid in enumerate(vambbins_df['binid']):
         if binid in bin_MVX_fraction:
             mvx_score = bin_MVX_fraction[binid]
@@ -269,7 +270,7 @@ def return_DVF_table(cluster_file, DVF_predictions_file, labelled_bins):
     '''Function to parse DVF predictions for single contigs
        This is used for assessing performance of Viral prediction if it was conducted without Bins
     '''
-    clusters, binasannos = read_in_clusters(cluster_file)
+    clusters, binsannos = read_in_clusters(cluster_file)
     DVF_table = []
     
     ### Parse DVF predictions
@@ -324,15 +325,15 @@ def plot_precision_recall(predictions,probs,bin_test_labels):
     print('Logistic: f1=%.3f auc=%.3f' % (lr_f1, lr_auc))
     # plot the precision-recall curves
     no_skill = len(bin_test_labels[bin_test_labels==1]) / len(bin_test_labels)
-    pyplot.plot([0, 1], [no_skill, no_skill], linestyle='--', label='No Skill')
-    pyplot.plot(lr_recall, lr_precision, marker='.', label='RF-Model')
+    plt.plot([0, 1], [no_skill, no_skill], linestyle='--', label='No Skill')
+    plt.plot(lr_recall, lr_precision, marker='.', label='RF-Model')
     # axis labels
-    pyplot.xlabel('Recall')
-    pyplot.ylabel('Precision')
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
     # show the legend
-    pyplot.legend()
+    plt.legend()
     # show the plot
-    pyplot.show()
+    plt.show()
 
 
 def plot_precision_recall_wDVF(predictions,probs,bin_test_labels,DVF_probs,DVF_labels):
@@ -352,16 +353,16 @@ def plot_precision_recall_wDVF(predictions,probs,bin_test_labels,DVF_probs,DVF_l
     print('Logistic: f1=%.3f auc=%.3f' % (lr_f1, lr_auc))
     # plot the precision-recall curves
     no_skill = len(bin_test_labels[bin_test_labels==1]) / len(bin_test_labels)
-    pyplot.plot([0, 1], [no_skill, no_skill], linestyle='--', label='No Skill')
-    pyplot.plot(lr_recall, lr_precision, marker='.', label='RF-Model')
-    pyplot.plot(DVF_lr_recall, DVF_lr_precision, marker='.', label='DVF-bin-score')
+    plt.plot([0, 1], [no_skill, no_skill], linestyle='--', label='No Skill')
+    plt.plot(lr_recall, lr_precision, marker='.', label='RF-Model')
+    plt.plot(DVF_lr_recall, DVF_lr_precision, marker='.', label='DVF-bin-score')
     # axis labels
-    pyplot.xlabel('Recall')
-    pyplot.ylabel('Precision')
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
     # show the legend
-    pyplot.legend()
+    plt.legend()
     # show the plot
-    pyplot.show()
+    plt.show()
 
 def plot_AUC_curve(probs,bin_test_labels):
     
@@ -377,15 +378,15 @@ def plot_AUC_curve(probs,bin_test_labels):
     ns_fpr, ns_tpr, _ = roc_curve(bin_test_labels, ns_probs)
     lr_fpr, lr_tpr, _ = roc_curve(bin_test_labels, probs)
     # plot the roc curve for the model
-    pyplot.plot(ns_fpr, ns_tpr, linestyle='--', label='No Skill')
-    pyplot.plot(lr_fpr, lr_tpr, marker='.', label='RF-Model')
+    plt.plot(ns_fpr, ns_tpr, linestyle='--', label='No Skill')
+    plt.plot(lr_fpr, lr_tpr, marker='.', label='RF-Model')
     # axis labels
-    pyplot.xlabel('False Positive Rate')
-    pyplot.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
     # show the legend
-    pyplot.legend()
+    plt.legend()
     # show the plot
-    pyplot.show()
+    plt.show()
     
 
 def plot_AUC_curve_wDVF(probs,bin_test_labels, DVF_probs,DVF_labels):
@@ -404,13 +405,13 @@ def plot_AUC_curve_wDVF(probs,bin_test_labels, DVF_probs,DVF_labels):
     
     DVF_lr_fpr, DVF_lr_tpr, _ =  roc_curve(DVF_labels, DVF_probs)
     # plot the roc curve for the model
-    pyplot.plot(ns_fpr, ns_tpr, linestyle='--', label='No Skill')
-    pyplot.plot(lr_fpr, lr_tpr, marker='.', label='RF-Model')
-    pyplot.plot(DVF_lr_fpr, DVF_lr_tpr, marker='*', label='DVF-bin-score')
+    plt.plot(ns_fpr, ns_tpr, linestyle='--', label='No Skill')
+    plt.plot(lr_fpr, lr_tpr, marker='.', label='RF-Model')
+    plt.plot(DVF_lr_fpr, DVF_lr_tpr, marker='*', label='DVF-bin-score')
     # axis labels
-    pyplot.xlabel('False Positive Rate')
-    pyplot.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
     # show the legend
-    pyplot.legend()
+    plt.legend()
     # show the plot
-    pyplot.show()
+    plt.show()

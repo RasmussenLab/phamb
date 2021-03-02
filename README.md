@@ -1,5 +1,5 @@
 # phamb
-A Phage discovery approach through binning of Metagenomic derived contigs 
+A Phage discovery approach through binning of Metagenomic derived contigs. Most snakemake workflows comes with conda-environments, thus dependencies and programmes are automatcally installed. 
 
 ## Prerequisites - Snakemake 
 
@@ -11,7 +11,91 @@ conda install -n snakemake snakemake pygraphviz python=3.8
 ```
 
 
-## reads to bins - Snakemake pipeline 
+## MAG annotation for isolating Metagenomic derived viromes
+
+### Requirements
+VAMB bins and concatenated assemblies. 
+
+```
+contigs.fna.gz #Concatenated assembly 
+vamb/clusters.tsv   #Clustered contigs based on the above contigs.fna.gz file 
+```
+
+Furthermore. 
+* VOGdb[https://vogdb.csb.univie.ac.at/download] - untar `vog.hmm.tar.gz` to get `AllVOG.hmm`    [File path needs to be specified in `config.yaml`]
+* Micomplete Bacterial HMMs[https://bitbucket.org/evolegiolab/micomplete/src/master/micomplete/share/Bact105.hmm]   [File path needs to be specified in `config.yaml`]
+* Clone DeepVirFinder[https://github.com/jessieren/DeepVirFinder] git clone https://github.com/jessieren/DeepVirFinder
+
+
+### How to Run 
+
+Copy repository, extract the `mag_annotation` workflow and split contigs to allow annotation to be run in parallel.
+```
+mkdir -p projectdir 
+cd projectdir 
+git clone https://github.com/RasmussenLab/phamb.git
+cp -r phamb/workflows/mag_annotation .
+python mag_annotation/scripts/split_contigs.py -c contigs.fna.gz 
+
+```
+
+Now the `contigs.fna.gz` is splitted into individual assemblies i.e. `assembly/{sample}/{sample}.fna`
+In addition, a `sample_table.txt` file is created with a line for each sample.
+Check that `sample_table.txt` contains sample identifiers corresponding to the ones you expect. 
+The number of lines should correspond to the number of samples used to make the concatenated assembly
+
+Now, Specify paths for databases, vamb directory, location of assembly  and computational resouces in `mag_annotation/config.yaml`  
+
+
+If everything good and set, you can run the snakemake pipeline.
+```
+# Local 
+snakemake -s mag_annotation/Snakefile --use-conda -j 1
+```
+
+Dependent on the number of samples, it may be relevant to run the Snake-flow on a HPC server.
+```
+# HPC - this won't work unless you specify a legit group on your HPC in `config.yaml`
+snakemake -s Snakefile --cluster qsub -j 32 --use-conda 
+```
+
+### Workflow content
+The workflow does the following. 
+1. Splits the combined assembly into separate sample-specific ones 
+2. Predicts proteins de novo using Prodigal meta
+3. Searches proteins with VOGdb (PVOG) and miComplete bacterial hallmarks db 
+4. Scans each contig using DeepVirFinder  
+5. Aggregates the above into Bin-wise annotation summaries used as input for Viral Decontamination Random Forrest model
+
+By the end of the day, what goes on is pretty straight forward. Using relatively few variables, the RF automates filtering of VAMB bins that are most likely bacterial and there provides a space of plausible viral/plasmid entities for further validation. The RF-model has been trained on paired Metaviromes and Metagenomes to make precisde decisions based on simple parameteres as the ones below. 
+
+| binsize (bp) | nhallm | nVOGs | cluster_DVF_score |
+|--------------|--------|-------|-------------------|
+| 2.000.000    | 100    | 0.2   | 0.3               |
+| 60.000       | 3      | 1.3   | 0.7               |
+
+Why does this work so well? Aggregated information (assuming the binning is really good!) from multiple-contigs simplifies prediction compared to single-contigs.
+
+
+### Outputs
+Eventually the following key fasta-files are produced along with the table `vambbins_aggregated_annotation.txt` with information about each Bin.    
+```bash
+sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna.gz
+sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.contigs.fna.gz
+```
+ 
+The `VAMB.Viral_RF_predictions.bins.fna.gz` file provides the concatenated-assemblies of VAMB bins while the `VAMB.Viral_RF_predictions.contigs.fna.gz` contains the individual contigs
+
+Both files can be evaluated with dedicated Viral evaluation tools like Virsorter2[https://github.com/jiarong/VirSorter2] or CheckV[https://bitbucket.org/berkeleylab/checkv/src/master/] to identify HQ assembies.
+
+i.e. 
+```
+checkv end_to_end VAMB.Viral_RF_predictions.bins.fna.gz` checkv_vamb_bins  
+```
+
+
+
+## Other Workflows provided here - If you are starting from Scratch with metagenomes or metaviromes 
 A series of pipeline steps that runs the following on a metagenomic dataset of choice
 - QC
 - Assembly
@@ -25,34 +109,15 @@ Most necessary requirements are packed into Conda-environments, some are not cur
 snakemake -s crispr/Snakefile -j --use-conda --use-envmodules
 ```
 
-
-## MAG annotation 
-NB: Requires VAMB bins and assemblies etc. from above 
-
-- Annotation of proteins from assembled contigs, including:
-    - PVOG 
-    - DeepVirFinder score for each contig
-    - Bacterial Hallmark annotation
-- Bin-wise annotation summaries used as input for Viral Decontamination
-
-i.e.
-Using relatively few variables automates filtering of contigs belonging to metagenomic bins that are NOT likely bacterial and therefore plausible viral/others.
-
-
-| binsize (bp) | nhallm | nVOGs | cluster_DVF_score |
-|--------------|--------|-------|-------------------|
-| 2.000.000    | 100    | 0.2   | 0.3               |
-| 60.000       | 3      | 1.3   | 0.7               |
-
 ## CRISPR
 - Using CRISPR-cas-typer (CCtyper) to extract CRISPR-arrays from MAGs generated using VAMB
 - Alignment of putative Viruses to MAGs
 - Summarise Viral-MAG connections
 
-## CHECKV (Work in progress)
+## CHECKV annotation and viral proteomes
 Code for parsing checkV output files and annotating MQ/NC viral bins with taxonomical and functional annotation
 
 ## MAG VMAG Abundance 
-Code for making abundance matrices of MAGs and Viruses (validated with CheckV)
+Code for making abundance matrices of MAGs and Viruses
 
 

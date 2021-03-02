@@ -6,6 +6,7 @@ configfile: 'checkv/config.yaml'
 
 PROJECT = config.get("cluster_project") # Who's paying for running this Flow on a Server-cluster?
 THREADS = config.get("threads_ppn")
+CHECKVDB = "/home/projects/cpr_10006/projects/phamb/HMP2/databases/checkv/checkv-db-v0.6"
 
 
 def splitgenomes(fasta_file,directory_out):
@@ -26,18 +27,19 @@ rule all:
 
 rule checkv:
     input:
-        VAMB_bins = '04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.bins.fna',
-        putative_viral_contigs = "04_annotation/annotation_summaries/VAMBV3.Viral_RF_predictions.contigs.fna.gz"
+        VAMB_bins = '04_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna.gz',
+        putative_viral_contigs = "04_annotation/annotation_summaries/VAMB.Viral_RF_predictions.contigs.fna.gz"
     output:
         checkv_bins=  '07_binannotation/checkv/VAMB_bins/quality_summary.tsv',
         checkv_contigs= '07_binannotation/checkv/VAMB_contigs/quality_summary.tsv'
+    params:
+        checkvdb= CHECKVDB
     conda:
         "envs/checkv.yaml"
     threads: THREADS
     shell:
         """ 
-        export CHECKVDB=/home/projects/cpr_10006/projects/phamb/HMP2/databases/checkv/checkv-db-v0.6
-        
+        export {params.checkvdb}
         checkv end_to_end {input.VAMB_bins} {output.checkv_bins} -t {threads}
         checkv end_to_end {input.putative_viral_contigs} {output.checkv_contigs} -t {threads}
         """ 
