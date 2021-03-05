@@ -4,4 +4,4 @@ channels:
    - conda-forge
    - defaults
 dependencies:
-   - prodigal=2.6.3
+   - prodigal

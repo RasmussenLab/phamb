@@ -7,17 +7,9 @@ import numpy as np
 import argparse
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='')
-    required = parser.add_argument_group('Required arguments')
-    
-    required.add_argument('-c',
-                          '--contigs_file',
-                          metavar='',
-                          required=True,
-                          type=str,
-                          help='Fasta file with contigs')
-    (args, extra_args) = parser.parse_known_args()
-
+    parser = argparse.ArgumentParser(description='')    
+    parser.add_argument('-c', help='Cluster file')
+    args = parser.parse_args()
     return args
 
 ### Plenty of near and efficient classes and functions from VAMBtools

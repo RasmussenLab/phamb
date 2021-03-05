@@ -88,6 +88,12 @@ The RF model requires very few variables to make an accurate distinction.
 
 
 ### Outputs
+
+Running this script, the virome bins are written to a fasta file and bin-annotations are summarised.
+```bash
+python mag_annotation/scripts/parse_annotation_minimal.py -v vamb -s sample_table.txt -a sample_annotation -o mag_viral_summaries -f contigs.fna.gz --decontaminate 
+```
+
 Eventually the following key fasta-files are produced along with the table `vambbins_aggregated_annotation.txt` with information about each Bin.    
 ```bash
 sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna.gz
