@@ -78,17 +78,22 @@ The workflow does the following.
 4. Scans each contig using DeepVirFinder  
 5. Aggregates the above into Bin-wise annotation summaries used as input for Viral Decontamination Random Forrest model
 
-By the end of the day, what goes on is pretty straight forward. Using relatively few variables, the RF automates filtering of VAMB bins that are most likely bacterial and there provides a space of plausible viral/plasmid entities for further validation. The RF-model has been trained on paired Metaviromes and Metagenomes to make precisde decisions based on simple parameteres as the ones below. 
+The RF model automates filtering of VAMB bins that are most likely bacterial and therefore provides a space of plausible viral entities for further validation. The RF-model has been trained on paired Metaviromes and Metagenomes to make precisde decisions based on simple parameteres as the ones below. Compared to a single contig viral prediction model, the RF approach is extremely accurate. The increased performance is likely explained by the RF model evaluating on bin-level where one sequence with a low viral score does lead to a misprediction of the whole bin. Aggregated information (assuming the binning is really good!) from multiple-contigs simplifies prediction compared to single-contigs.
 
+The RF model requires very few variables to make an accurate distinction.
 | binsize (bp) | nhallm | nVOGs | cluster_DVF_score |
 |--------------|--------|-------|-------------------|
 | 2.000.000    | 100    | 0.2   | 0.3               |
 | 60.000       | 3      | 1.3   | 0.7               |
 
-Why does this work so well? Aggregated information (assuming the binning is really good!) from multiple-contigs simplifies prediction compared to single-contigs.
-
 
 ### Outputs
+
+Running this script, the virome bins are written to a fasta file and bin-annotations are summarised.
+```bash
+python mag_annotation/scripts/parse_annotation_minimal.py -v vamb -s sample_table.txt -a sample_annotation -o mag_viral_summaries -f contigs.fna.gz --decontaminate 
+```
+
 Eventually the following key fasta-files are produced along with the table `vambbins_aggregated_annotation.txt` with information about each Bin.    
 ```bash
 sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna.gz
@@ -97,14 +102,12 @@ sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.contigs.fna.gz
  
 The `VAMB.Viral_RF_predictions.bins.fna.gz` file provides the concatenated-assemblies of VAMB bins while the `VAMB.Viral_RF_predictions.contigs.fna.gz` contains the individual contigs
 
-Both files can be evaluated with dedicated Viral evaluation tools like Virsorter2[https://github.com/jiarong/VirSorter2] or CheckV[https://bitbucket.org/berkeleylab/checkv/src/master/] to identify HQ assembies.
+Both files can be evaluated with dedicated Viral evaluation tools like [CheckV](https://bitbucket.org/berkeleylab/checkv/src/master/) to identify HQ assemblies.
 
 i.e. 
 ```
 checkv end_to_end VAMB.Viral_RF_predictions.bins.fna.gz` checkv_vamb_bins  
 ```
-
-
 
 ## 2. Bacterial MAG and viral MAG association [In Progress]
 

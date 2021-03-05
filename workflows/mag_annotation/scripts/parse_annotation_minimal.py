@@ -420,11 +420,9 @@ def aggregate_bin_annotation(args,cls,binsannos):
 
     print('Writing results to:',fileout)
     with open(fileout,'w') as out:
-        header = ['binid','ncontigs','binsize','motherbin','nhallm','nVOGs','bin_DVF_score','cluster_DVF_score']
-
+        header = ['binid','ncontigs','binsize','motherbin','nhallm','nVOGs','bin_DVF_score','cluster_DVF_score','annotation_label']
         out.write('\t'.join(header) + '\n')
         for binid in binsannos:
-
             lineout = []
             lineout.append(binid)
 
@@ -435,46 +433,46 @@ def aggregate_bin_annotation(args,cls,binsannos):
             ### Going this low...
             if binsize <= 2500:
                 continue
-                     
             mothercluster = binsannos[binid].motherbin
             if mothercluster not in cluster_hallmark_count:
                 nhallmarks = 0
             else:
                 nhallmarks = cluster_hallmark_count[mothercluster]
-
             if binid not in bin_vog_count:
                 nVOGs = 0
             else:
                 nVOGs = bin_vog_count[binid]
-            
+                nVOGs = round(nVOGs,2)
             if binid not in bin_median_dvf:
                 bin_DVF_score = 0
             else:
                 bin_DVF_score = bin_median_dvf[binid]
-            
+                bin_DVF_score = round(bin_DVF_score,2)
             if mothercluster not in cluster_median_dvf:
                 cluster_DVF_score = 0
             else:
                 cluster_DVF_score = cluster_median_dvf[mothercluster]
+                cluster_DVF_score = round(cluster_DVF_score,2)
 
             ### 
-            lineout += [ncontigs,binsize, mothercluster, nhallmarks, round(nVOGs,2), round(bin_DVF_score,2),round(cluster_DVF_score,2)]
+            if all( i == 0 for i in [nhallmarks, nVOGs, bin_DVF_score, cluster_DVF_score] ) is True:
+                annotation_label = 'not-annotated'
+            else:
+                annotation_label = 'annotated'
+            lineout += [ncontigs,binsize, mothercluster, nhallmarks, nVOGs,bin_DVF_score,cluster_DVF_score,annotation_label]
             lineout = [str(x) for x in lineout]
-
             out.write('\t'.join(lineout) + '\n')
 
 
 
-def write_concate_sequences(args,cls,_vambbins_filtered):
+def write_concatenated_sequences(args,cls,_vambbins_filtered):
     '''
     Write out Contigs Concatenated as Bins 
     Write out Contigs individually
     '''
-    
     viral_contigs_out = os.path.join(args.outdir,'VAMB.Viral_RF_predictions.contigs.fna')
     viral_bins_out = os.path.join(args.outdir,'VAMB.Viral_RF_predictions.bins.fna')
     binids = set(_vambbins_filtered.binid)
-
     print('Parsing Fasta sequences - this may take a while...')
     clusters = {}
     with open(viral_contigs_out,'w') as out:
@@ -499,8 +497,13 @@ def write_concate_sequences(args,cls,_vambbins_filtered):
 
 
 def RF_decontaminate(args):
+    '''
+    - Load table with bin-summarised information , size , PVOG proteins and bacterial hallmarks etc.
+    - Predict Viral and Bacterial bins using the Random Forest model 
+    '''
 
     table_file = os.path.join(args.outdir,'vambbins_aggregated_annotation.txt')
+    table_file = os.path.join('mag_viral_summaries','vambbins_aggregated_annotation.txt')
     if not os.path.exists(table_file):
         print('Ups! Where is your VAMB bins file?:',table_file)
         sys.exit(1)
@@ -508,6 +511,8 @@ def RF_decontaminate(args):
     print('Loading Model and annotation table')
     trained_model = joblib.load('mag_annotation/dbs/RF_model.sav')
     _vambbins = pd.read_csv(table_file,sep='\t')
+    _vambbins = _vambbins[ _vambbins.annotation_label == 'annotated']
+
     _subset = _vambbins[['binsize','nhallm','nVOGs','cluster_DVF_score']]
     eval_predictions = trained_model.predict(_subset)
     prediction_labels = np.where(eval_predictions == 0,'Bacterial','Viral')
@@ -524,7 +529,7 @@ def RF_decontaminate(args):
         print('You need to provide the -f argument in order to write fasta files of Viral Bins and Contigs!')
         sys.exit(0)
     ### Write out contigs and Bins concatenated
-    write_concate_sequences(args,cls,_vambbins_filtered)
+    write_concatenated_sequences(args,cls,_vambbins_filtered)
     print('Done Writing Viral Sequences!')
 
 
@@ -552,7 +557,6 @@ if __name__ == "__main__":
     parse_DVF(args,task_list,samples)
     parse_Prodigal(args,task_list,samples)
     print('Done')
-
     if 'Bintable' in task_list:
 
         ### Read in VAMB cluster information

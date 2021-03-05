@@ -41,25 +41,33 @@ rule all:
     input:
         expand("sample_annotation/{sample}/{sample}.hmmMiComplete105.tbl", sample=IDS),
         expand("sample_annotation/{sample}/{sample}.hmmVOG.tbl", sample=IDS),
-        directory(expand("sample_annotation/{sample}/{sample}_dvf", sample=IDS)),
-        "sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna.gz"
+        directory(expand("sample_annotation/{sample}/{sample}_dvf", sample=IDS))
 
 
 rule PRODIGAL:
     input:
-        contigs = "assembly/{sample}/{sample}" + CONTIGSUFFIX
+        contigs = "assembly/{sample}/{sample}" + CONTIGSUFFIX 
     output:
         proteins = "sample_annotation/{sample}/{sample}.predicted_proteins.faa",
         genes = "sample_annotation/{sample}/{sample}.predicted_proteins.fna"
     params:
-        walltime="18000", nodes="1", ppn="1", mem="5gb", project=PROJECT
+        walltime="18000", nodes="1", ppn="1", mem="5gb", project=PROJECT,
+        tmp_contigs = "sample_annotation/{sample}.unzipped_contigs.fna"
     threads: 1
     conda:
         "envs/prodigal.yaml"
     log:
         "magannotation_log/prodigal/{sample}.prodigal.log"
     shell:
-        "prodigal -i {input.contigs} -d {output.genes} -a {output.proteins} -p meta -g 11 -q 2>{log}"
+        """
+        if [[ {input.contigs} = *.gz ]]; then
+            gunzip -c {input.contigs} > {params.tmp_contigs}
+            prodigal -i {params.tmp_contigs} -d {output.genes} -a {output.proteins} -p meta -g 11 -q 2>{log}
+            rm {params.tmp_contigs}
+        else
+            prodigal -i {input.contigs} -d {output.genes} -a {output.proteins} -p meta -g 11 -q 2>{log}
+        fi
+        """
 
 rule miComplete:
     input:
@@ -112,6 +120,9 @@ rule DeepVirFinder:
         """
         python {params.dvfscript} -i {input.contigs} -o {output.dvffile} -l 2000 -c {threads} 2>{log}
         """
+
+
+
 
 rule summarise_annotations:
     input:
