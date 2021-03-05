@@ -1,9 +1,14 @@
 # phamb
-A Phage discovery approach through binning of Metagenomic derived contigs. Most snakemake workflows comes with conda-environments, thus dependencies and programmes are automatcally installed. 
+A Phage from metagenomic bins (phamb) discovery approach used to isolate metagenome derived viromes and High-quality viral genomes.
+The repository contains scripts and workflows used in our viral follow up study on the binning tool [VAMB](https://github.com/RasmussenLab/vamb) where we have benchmarked not only the quality and quantity of viral MAGs but also the viral overlap with metaviromes. In our analysis, [CheckV](https://bitbucket.org/berkeleylab/checkv/src/master/) has been important for assessing the actual gain of using viral MAGs relative to single-contig evaluation, a big kudos to Nayfach et al. for this great tool. We have applied this approach to 3 different datasets and recovered up to 6,077 High-quality genomes from 1,024 viral populations. Similar to what we have observed for Bacterial bins, VAMB achieves high intra-VAMB-cluster ANI (>97.5%) also for viral bins, our best example here is accurate clustering of crAss-like bins found in the IBD Human Microbiome Project 2 dataset. 
+
+- Our (recommended) workflow is to isolate the virome search space prior to running viral evaluation/prediction tools. For this, we have trained a Random Forest model on viral bins established using paired metagenomic and metavirome datasets. This massively helps in reducing computational time especially on larger datasets.
+- We strongly advise to only use Medium-quality and High-quality viral bins produced using the AAI-model in CheckV. The HMM-model is not well-suited here. Downstream viral proteome analysis should be based on the `viral regions` found in the `contamination.tsv` file produced by CheckV.  
+
 
 ## Prerequisites - Snakemake 
 
-In order to run most of it, you need conda installed in order to install snakemake.
+In order to run most of it, you need conda installed in order to install snakemake. Most snakemake workflows comes with conda-environments, thus dependencies and programmes are automatcally installed. 
 
 ```
 conda install -n snakemake snakemake pygraphviz python=3.8
@@ -13,7 +18,7 @@ conda install -n snakemake snakemake pygraphviz python=3.8
 
 ## MAG annotation for isolating Metagenomic derived viromes
 
-### Requirements
+### Database and file requirements
 VAMB bins and concatenated assemblies. 
 
 ```
@@ -22,9 +27,9 @@ vamb/clusters.tsv   #Clustered contigs based on the above contigs.fna.gz file
 ```
 
 Furthermore. 
-* VOGdb[https://vogdb.csb.univie.ac.at/download] - untar `vog.hmm.tar.gz` to get `AllVOG.hmm`    [File path needs to be specified in `config.yaml`]
-* Micomplete Bacterial HMMs[https://bitbucket.org/evolegiolab/micomplete/src/master/micomplete/share/Bact105.hmm]   [File path needs to be specified in `config.yaml`]
-* Clone DeepVirFinder[https://github.com/jessieren/DeepVirFinder] git clone https://github.com/jessieren/DeepVirFinder
+* [VOGdb](https://vogdb.csb.univie.ac.at/download) - untar `vog.hmm.tar.gz` to get `AllVOG.hmm`    [File path needs to be specified in `config.yaml`]
+* [Micomplete Bacterial HMMs](https://bitbucket.org/evolegiolab/micomplete/src/master/micomplete/share/Bact105.hmm)   [File path needs to be specified in `config.yaml`]
+* Clone [DeepVirFinder](https://github.com/jessieren/DeepVirFinder) git clone https://github.com/jessieren/DeepVirFinder
 
 
 ### How to Run 
@@ -33,7 +38,7 @@ Copy repository, extract the `mag_annotation` workflow and split contigs to allo
 ```
 mkdir -p projectdir 
 cd projectdir 
-git clone https://github.com/RasmussenLab/phamb.git
+git clone the repository https://github.com/RasmussenLab/phamb.git
 cp -r phamb/workflows/mag_annotation .
 python mag_annotation/scripts/split_contigs.py -c contigs.fna.gz 
 
