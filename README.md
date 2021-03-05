@@ -1,6 +1,9 @@
 # phamb
 A Phage from metagenomic bins (phamb) discovery approach used to isolate metagenome derived viromes and High-quality viral genomes.
-The repository contains scripts and workflows used in our viral follow up study on the binning tool [VAMB](https://github.com/RasmussenLab/vamb) where we have benchmarked not only the quality and quantity of viral MAGs but also the viral overlap with metaviromes. In our analysis, [CheckV](https://bitbucket.org/berkeleylab/checkv/src/master/) has been important for assessing the actual gain of using viral MAGs relative to single-contig evaluation, a big kudos to Nayfach et al. for this great tool. We have applied this approach to 3 different datasets and recovered up to 6,077 High-quality genomes from 1,024 viral populations, this is 200% more compared to only evaluation single-contigs. Similar to what we have observed for Bacterial bins, VAMB achieves high intra-VAMB-cluster ANI (>97.5%) also for viral bins, our best example here is accurate clustering of crAss-like bins found in the IBD Human Microbiome Project 2 dataset. 
+
+The repository contains scripts and workflows used in our viral follow up study on the binning tool [VAMB](https://github.com/RasmussenLab/vamb) where we have benchmarked not only the quality and quantity of viral MAGs but also the viral overlap with metaviromes. In our analysis, [CheckV](https://bitbucket.org/berkeleylab/checkv/src/master/) has been important for assessing the actual gain of using viral MAGs relative to single-contig evaluation, a big kudos to Nayfach et al. for this great tool. 
+
+We have applied this approach to 3 different datasets and recovered up to 6,077 High-quality genomes from 1,024 viral populations, this is 200% more compared to only evaluation single-contigs. Similar to what we have observed for Bacterial bins, VAMB achieves high intra-VAMB-cluster ANI (>97.5%) also for viral bins, our best example here is accurate clustering of crAss-like bins found in the IBD Human Microbiome Project 2 dataset. 
 
 - Our (recommended) workflow is to isolate the virome search space prior to running viral evaluation/prediction tools. For this, we have trained a Random Forest model on viral bins established using paired metagenomic and metavirome datasets. This massively helps in reducing computational time especially on larger datasets.
 - We strongly advise to only use Medium-quality and High-quality viral bins evaluated using the AAI-model in CheckV. We found the HMM-model is not currently well-suited for viral MAGs. Low-quality viral bins may likely represent fragmented/incomplete viruses or novel ones. 
@@ -89,12 +92,17 @@ The RF model requires very few variables to make an accurate distinction.
 
 ### Outputs
 
-Running this script, the virome bins are written to a fasta file and bin-annotations are summarised.
+Running this script, the virome bins are written to a fasta file and bin-annotations are summarised in `vambbins_aggregated_annotation.txt`  
 ```bash
-python mag_annotation/scripts/parse_annotation_minimal.py -v vamb -s sample_table.txt -a sample_annotation -o mag_viral_summaries -f contigs.fna.gz --decontaminate 
-```
+python mag_annotation/scripts/parse_annotation_minimal.py -v vamb \
+-s sample_table.txt \
+-a sample_annotation \
+-o mag_viral_summaries \
+-f contigs.fna.gz \
+--decontaminate 
 
-Eventually the following key fasta-files are produced along with the table `vambbins_aggregated_annotation.txt` with information about each Bin.    
+```
+  
 ```bash
 sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna.gz
 sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.contigs.fna.gz
