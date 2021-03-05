@@ -6,7 +6,10 @@ The repository contains scripts and workflows used in our viral follow up study 
 - We strongly advise to only use Medium-quality and High-quality viral bins evaluated using the AAI-model in CheckV. We found the HMM-model is not currently well-suited for viral MAGs. Low-quality viral bins may likely represent fragmented/incomplete viruses or novel ones. 
 - Bacterial MAGs and viral MAGs from the same metagenome can be efficiently associated using crispr-spacer approaches and sequence alignment (recommended cutoffs can be found in the article). From this, Host-viral abundance dynamics and bacterial pangenome modulation can be studied. Downstream viral proteome analysis should be based on the `viral regions` found in the `contamination.tsv` file produced by CheckV to prevent contaminating bacterial genes to influence the analysis. 
 
-
+We are working on seperate Snakemake workflows and scripts to make this approach more available.
+1. MAG annotation for isolating Metagenomic derived viromes
+2. Bacterial MAG and viral MAG association 
+3. MAG & VMAG Abundance
 
 
 ## Prerequisites - Snakemake 
@@ -19,7 +22,7 @@ conda install -n snakemake snakemake pygraphviz python=3.8
 ```
 
 
-## MAG annotation for isolating Metagenomic derived viromes
+## 1. MAG annotation for isolating Metagenomic derived viromes
 
 ### Database and file requirements
 VAMB bins and concatenated assemblies. 
@@ -103,29 +106,13 @@ checkv end_to_end VAMB.Viral_RF_predictions.bins.fna.gz` checkv_vamb_bins
 
 
 
-## Other Workflows provided here - If you are starting from Scratch with metagenomes or metaviromes 
-A series of pipeline steps that runs the following on a metagenomic dataset of choice
-- QC
-- Assembly
-- Mapping
-- Binning using VAMB 
+## 2. Bacterial MAG and viral MAG association [In Progress]
 
-Pipeline options ara available in config.
-Most necessary requirements are packed into Conda-environments, some are not currently.
-
-```
-snakemake -s crispr/Snakefile -j --use-conda --use-envmodules
-```
-
-## CRISPR
 - Using CRISPR-cas-typer (CCtyper) to extract CRISPR-arrays from MAGs generated using VAMB
 - Alignment of putative Viruses to MAGs
 - Summarise Viral-MAG connections
 
-## CHECKV annotation and viral proteomes
-Code for parsing checkV output files and annotating MQ/NC viral bins with taxonomical and functional annotation
-
-## MAG VMAG Abundance 
+## 3. MAG VMAG Abundance [In Progress]
 Code for making abundance matrices of MAGs and Viruses
 
 
