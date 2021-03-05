@@ -3,7 +3,10 @@ A Phage from metagenomic bins (phamb) discovery approach used to isolate metagen
 The repository contains scripts and workflows used in our viral follow up study on the binning tool [VAMB](https://github.com/RasmussenLab/vamb) where we have benchmarked not only the quality and quantity of viral MAGs but also the viral overlap with metaviromes. In our analysis, [CheckV](https://bitbucket.org/berkeleylab/checkv/src/master/) has been important for assessing the actual gain of using viral MAGs relative to single-contig evaluation, a big kudos to Nayfach et al. for this great tool. We have applied this approach to 3 different datasets and recovered up to 6,077 High-quality genomes from 1,024 viral populations. Similar to what we have observed for Bacterial bins, VAMB achieves high intra-VAMB-cluster ANI (>97.5%) also for viral bins, our best example here is accurate clustering of crAss-like bins found in the IBD Human Microbiome Project 2 dataset. 
 
 - Our (recommended) workflow is to isolate the virome search space prior to running viral evaluation/prediction tools. For this, we have trained a Random Forest model on viral bins established using paired metagenomic and metavirome datasets. This massively helps in reducing computational time especially on larger datasets.
-- We strongly advise to only use Medium-quality and High-quality viral bins produced using the AAI-model in CheckV. The HMM-model is not well-suited here. Downstream viral proteome analysis should be based on the `viral regions` found in the `contamination.tsv` file produced by CheckV.  
+- We strongly advise to only use Medium-quality and High-quality viral bins evaluated using the AAI-model in CheckV. We found the HMM-model is not currently well-suited for viral MAGs. Low-quality viral bins may likely represent fragmented/incomplete viruses or novel ones. 
+- Bacterial MAGs and viral MAGs from the same metagenome can be efficiently associated using crispr-spacer approaches and sequence alignment (recommended cutoffs can be found in the article). From this, Host-viral abundance dynamics and bacterial pangenome modulation can be studied. Downstream viral proteome analysis should be based on the `viral regions` found in the `contamination.tsv` file produced by CheckV to prevent contaminating bacterial genes to influence the analysis. 
+
+
 
 
 ## Prerequisites - Snakemake 
