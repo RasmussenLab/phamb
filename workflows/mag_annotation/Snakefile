@@ -120,30 +120,3 @@ rule DeepVirFinder:
         """
         python {params.dvfscript} -i {input.contigs} -o {output.dvffile} -l 2000 -c {threads} 2>{log}
         """
-
-
-
-
-rule summarise_annotations:
-    input:
-        vambdir = VAMBDIR,
-        sample_table = sample_table,
-        annotation_directory = "mag_bin_annotation",
-        combined_assembly = "contigs.fna.gz"
-    output:
-        outdir = directory( "sample_annotation/annotation_summaries" ),
-        "sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna.gz",
-    conda:
-        "envs/RF.yaml"
-    shell:
-        """
-        python mag_annotation/scripts/parse_annotation_minimal.py -v {input.vambdir} \
-        -s {input.sample_table} \
-        -a {input.annotation_directory} \
-        -o {output.outdir} \
-        --fasta {input.combined_assembly \
-        --decontaminate
-
-        gzip sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.bins.fna
-        gzip sample_annotation/annotation_summaries/VAMB.Viral_RF_predictions.contigs.fna
-        """
