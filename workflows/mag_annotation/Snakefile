@@ -103,6 +103,25 @@ rule VOG:
     shell:
         "hmmsearch --cpu {threads} -E 1.0e-05 -o {params.tmpoutput} --tblout {output.hmmfile} {input.DB} {input.proteins} 2>{log}"
 
+rule virsorter2:
+    input:
+        contigs = "assembly/{sample}/{sample}" + CONTIGSUFFIX
+    output:
+        vs2dir = directory("sample_annotation/{sample}/{sample}_vs2")
+    params:
+        vs2db = '/home/projects/cpr_10006/projects/phamb/tools/VirSorter2/db'
+        walltime="18000", nodes="1", ppn="1", mem="10gb", project=PROJECT
+    threads: 1
+    conda:
+        "envs/virsorter2.yaml"
+    log:
+        "magannotation_log/vs2/{sample}.dvf.log"
+    shell:
+        """
+        virsorter config --init-source --db-dir={params.vs2db}
+        virsorter run -w {output.vs2dir} -i {input.contigs} --min-length 2000 --provirus-off -j {threads} all
+        """
+
 rule DeepVirFinder:
     input:
         contigs = "assembly/{sample}/{sample}" + CONTIGSUFFIX
