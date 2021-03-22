@@ -36,7 +36,7 @@ vamb/clusters.tsv   #Clustered contigs based on the above contigs.fna.gz file
 ```
 
 Furthermore. 
-* [VOGdb](https://vogdb.csb.univie.ac.at/download) - untar `vog.hmm.tar.gz` to get `AllVOG.hmm`    [File path needs to be specified in `config.yaml`]
+* [VOGdb](https://vogdb.csb.univie.ac.at/download) - untar `vog.hmm.tar.gz` to get all hmm files. Concatenate these into an `AllVOG.hmm` file  [File path needs to be specified in `config.yaml`]
 * [Micomplete Bacterial HMMs](https://bitbucket.org/evolegiolab/micomplete/src/master/micomplete/share/Bact105.hmm)   [File path needs to be specified in `config.yaml`]
 * Clone [DeepVirFinder](https://github.com/jessieren/DeepVirFinder) git clone https://github.com/jessieren/DeepVirFinder
 
@@ -58,7 +58,7 @@ In addition, a `sample_table.txt` file is created with a line for each sample.
 Check that `sample_table.txt` contains sample identifiers corresponding to the ones you expect. 
 The number of lines should correspond to the number of samples used to make the concatenated assembly
 
-Now, Specify paths for databases, vamb directory, location of assembly  and computational resouces in `mag_annotation/config.yaml`  
+Now, Specify paths for databases, vamb directory, location of assembly and computational resouces in `mag_annotation/config.yaml`  
 
 
 If everything good and set, you can run the snakemake pipeline.
