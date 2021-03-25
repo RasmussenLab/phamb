@@ -112,8 +112,8 @@ def read_checkv_quality(args):
             contigid  = row['contig_id']
             if not contigid in viruses:
                 continue
-            
             regions = row['region_types'].split(',')
+
             ### Formatting differences between most recent version of CheckV 
             if not 'region_genes' in row:
                 gene_coords = row['region_coords_genes'].split(',')
@@ -215,18 +215,3 @@ if __name__ == "__main__":
     write_viral_proteomes(args,viruses)
     write_viral_contigs(args,viruses)
     write_viral_host_contamination(args,viruses)
-
-
-
-
-
-
-class meh:
-    def __init__(self,name):
-        self.v = name 
-
-args = meh('07_binannotation/checkv/VAMB_bins')
-
-
-
-
