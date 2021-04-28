@@ -263,6 +263,9 @@ def DVF_generator(dvffile,seperator):
             if line[:4] =='name':
                 continue
             line = line.strip().split('\t')
+            if not len(line) == 4:
+                print(dvffile,'WARNING: this file might be corrupted!')
+                continue
             contig,score,pval = line[0],line[2],line[3]
             sample = contig.split(seperator)[0]
             dvf_entry = [contig,score,pval,sample]
@@ -503,7 +506,6 @@ def RF_decontaminate(args):
     '''
 
     table_file = os.path.join(args.outdir,'vambbins_aggregated_annotation.txt')
-    table_file = os.path.join('mag_viral_summaries','vambbins_aggregated_annotation.txt')
     if not os.path.exists(table_file):
         print('Ups! Where is your VAMB bins file?:',table_file)
         sys.exit(1)
@@ -515,9 +517,9 @@ def RF_decontaminate(args):
 
     _subset = _vambbins[['binsize','nhallm','nVOGs','cluster_DVF_score']]
     eval_predictions = trained_model.predict(_subset)
-    prediction_labels = np.where(eval_predictions == 0,'Bacterial','Viral')
+    prediction_labels = eval_predictions
     _vambbins['Prediction'] = prediction_labels
-    _vambbins_filtered = _vambbins[ (_vambbins.Prediction =='Viral') & (_vambbins.nVOGs >= 1) & (_vambbins.cluster_DVF_score >= 0.3) ]
+    _vambbins_filtered = _vambbins[ (_vambbins.Prediction =='Viral') ]
     
     table_file_annotated = os.path.join(args.outdir,'vambbins_aggregated_annotation.Viral.txt')
     _vambbins_filtered.sort_values(by='binsize',ascending=False).to_csv(table_file_annotated,sep='\t',index=False)
@@ -567,5 +569,5 @@ if __name__ == "__main__":
     
     if 'Decontaminate' in task_list:
         print('Running RF - decontaminate')
-        #RF_decontaminate(args)
+        RF_decontaminate(args)
 
