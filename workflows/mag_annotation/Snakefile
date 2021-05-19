@@ -111,7 +111,8 @@ rule DeepVirFinder:
         dvffile = directory("sample_annotation/{sample}/{sample}_dvf")
     params:
         dvfscript = os.path.join(DVFDIR,'dvf.py'),
-        walltime="18000", nodes="1", ppn="1", mem="10gb", project=PROJECT
+        walltime="18000", nodes="1", ppn="1", mem="10gb", project=PROJECT,
+        dvfdir = directory("sample_annotation/{sample}/{sample}_dvf")
     threads: 1
     conda:
         "envs/dvf.yaml"
@@ -119,5 +120,6 @@ rule DeepVirFinder:
         "magannotation_log/DVF/{sample}.dvf.log"
     shell:
         """
+        export THEANO_FLAGS="base_compiledir={params.dvfdir}"
         python {params.dvfscript} -i {input.contigs} -o {output.dvffile} -l 2000 -c {threads} 2>{log}
         """
