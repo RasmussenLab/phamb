@@ -119,6 +119,8 @@ rule DeepVirFinder:
     log:
         "magannotation_log/DVF/{sample}.dvf.log"
     shell:
-       """
-       export THEANO_FLAGS="base_compiledir={params.dvfdir}"; python {params.dvfscript} -i {input.contigs} -o {params.dvfdir} -l 2000 -c {threads} 2>{log}
-       """
+        """
+        export THEANO_FLAGS="base_compiledir={params.dvfdir}"
+        python {params.dvfscript} -i {input.contigs} -o {params.dvfdir} -l 2000 -c {threads} 2>{log}
+        """
+

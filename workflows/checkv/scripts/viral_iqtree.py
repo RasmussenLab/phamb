@@ -83,37 +83,7 @@ def ortholog_proteins(args):
                         else:
                             terl_genomes[binid].add(vog)
 
-            ### Fluffy String Search for Interpro and Eggnog
-            ### Eggnog
-            #   with open(eggfile,'r') as infile:
-            #       for line in infile:
-            #           if line[0] == '#':
-            #               continue
-            #           line = line.strip().split('\t')
-            #           proteinid = line[0]
-            #           egg = line[1]
-            #           binid = '_'.join(proteinid.split('_')[:2])
-            #           eggdescription = line[-1].lower()
-            #           if 'terminase' in eggdescription and 'large' in eggdescription:
-            #               terl_proteins.add(proteinid)
-            #               if not binid in terl_genomes:
-            #                   terl_genomes[binid] = set([egg])
-            #               else:
-            #                   terl_genomes[binid].add(egg)
-            #   ### Interpro 
-            #   with open(interprofile,'r') as infile:
-            #       for line in infile:
-            #           line = line.strip().split('\t')
-            #           proteinid = line[0] 
-            #           binid = '_'.join(proteinid.split('_')[:2])
-            #           IPRid = line[-2]
-            #           iprdesc = line[-1].lower()
-            #           if 'terminase' in iprdesc and 'large' in iprdesc:
-            #               terl_proteins.add(proteinid)
-            #               if not binid in terl_genomes:
-            #                   terl_genomes[binid] = set([IPRid])
-            #               else:
-            #                   terl_genomes[binid].add(IPRid)
+ 
             return terl_proteins, terl_genomes
 
         def write_out_proteins(checkv_directory,marker_proteins,genome_taxonomy,marker,viralfamily=None):
