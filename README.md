@@ -20,7 +20,7 @@ We are working on seperate Snakemake workflows and scripts to make this approach
 In order to run most of it, you need conda installed in order to install snakemake. Most snakemake workflows comes with conda-environments, thus dependencies and programmes are automatcally installed. 
 
 ```
-conda install -n snakemake snakemake pygraphviz python=3.8
+conda install -n snakemake snakemake pygraphviz python=3.8 cython scikit-learn==0.21.3
 
 ```
 
