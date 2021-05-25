@@ -41,7 +41,7 @@ rule all:
     input:
         expand("sample_annotation/{sample}/{sample}.hmmMiComplete105.tbl", sample=IDS),
         expand("sample_annotation/{sample}/{sample}.hmmVOG.tbl", sample=IDS),
-        directory(expand("sample_annotation/{sample}/{sample}_dvf", sample=IDS))
+        expand("sample_annotation/{sample}/{sample}_dvf/{sample}.fna_gt2000bp_dvfpred.txt", sample=IDS)
 
 
 rule PRODIGAL:
@@ -108,11 +108,11 @@ rule DeepVirFinder:
     input:
         contigs = "assembly/{sample}/{sample}" + CONTIGSUFFIX
     output:
-        dvffile = directory("sample_annotation/{sample}/{sample}_dvf")
+        dvffile = "sample_annotation/{sample}/{sample}_dvf/{sample}.fna_gt2000bp_dvfpred.txt"
     params:
         dvfscript = os.path.join(DVFDIR,'dvf.py'),
         walltime="18000", nodes="1", ppn="1", mem="10gb", project=PROJECT,
-        dvfdir = directory("sample_annotation/{sample}/{sample}_dvf")
+        dvfdir = "sample_annotation/{sample}/{sample}_dvf"
     threads: 1
     conda:
         "envs/dvf.yaml"
@@ -121,5 +121,6 @@ rule DeepVirFinder:
     shell:
         """
         export THEANO_FLAGS="base_compiledir={params.dvfdir}"
-        python {params.dvfscript} -i {input.contigs} -o {output.dvffile} -l 2000 -c {threads} 2>{log}
+        python {params.dvfscript} -i {input.contigs} -o {params.dvfdir} -l 2000 -c {threads} 2>{log}
         """
+
