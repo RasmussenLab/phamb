@@ -10,7 +10,6 @@ configfile: 'mag_annotation/config.yaml'
 MICOMPLETEDB = config.get("MICOMPLETEDB")
 VOGDB= config.get("VOGDB")
 DVFDIR = config.get("DVFDIR")
-DVFDIR = '/home/projects/cpr_10006/projects/phamb/tools/DeepVirFinder'
 
 
 PROJECT = config.get("cluster_project") # Who's paying for running this Flow on a Server-cluster?
