@@ -15,11 +15,11 @@ We are working on seperate Snakemake workflows and scripts to make this approach
 3. MAG & VMAG Abundance
 
 
-## Prerequisites - Snakemake 
+## [Prerequisites] - Snakemake 
 
-In order to run most of it, you need conda installed in order to install snakemake. Most snakemake workflows comes with conda-environments, thus dependencies and programmes are automatcally installed. 
+In order to run most of it, you need conda installed in order to install snakemake. Most snakemake workflows comes with conda-environments, thus dependencies and programmes are automatically installed. 
 
-```
+```bash
 conda install -n snakemake snakemake pygraphviz python=3.8 cython scikit-learn==0.21.3
 
 ```
@@ -30,21 +30,22 @@ conda install -n snakemake snakemake pygraphviz python=3.8 cython scikit-learn==
 ### Database and file requirements
 VAMB bins and concatenated assemblies. 
 
-```
+```bash
 contigs.fna.gz #Concatenated assembly 
 vamb/clusters.tsv   #Clustered contigs based on the above contigs.fna.gz file 
 ```
 
 Furthermore. 
-* [VOGdb](https://vogdb.csb.univie.ac.at/download) - untar `vog.hmm.tar.gz` to get all hmm files. Concatenate these into an `AllVOG.hmm` file  [File path needs to be specified in `config.yaml`]
+* [VOGdb](https://vogdb.csb.univie.ac.at/download) - untar `vog.hmm.tar.gz` to get all hmm files. Concatenate all the hmm-files these into an `AllVOG.hmm` file  [File path needs to be specified in `config.yaml`]
 * [Micomplete Bacterial HMMs](https://bitbucket.org/evolegiolab/micomplete/src/master/micomplete/share/Bact105.hmm)   [File path needs to be specified in `config.yaml`]
 * Clone [DeepVirFinder](https://github.com/jessieren/DeepVirFinder) git clone https://github.com/jessieren/DeepVirFinder
 
 
 ### How to Run 
 
-Copy repository, extract the `mag_annotation` workflow and split contigs to allow annotation to be run in parallel.
-```
+Copy the phamb repository, extract the `mag_annotation` workflow and split contigs (using the provided script) to allow annotation to be run in parallel.
+
+```bash
 mkdir -p projectdir 
 cd projectdir 
 git clone the repository https://github.com/RasmussenLab/phamb.git
@@ -53,24 +54,21 @@ python mag_annotation/scripts/split_contigs.py -c contigs.fna.gz
 
 ```
 
-Now the `contigs.fna.gz` is splitted into individual assemblies i.e. `assembly/{sample}/{sample}.fna`
-In addition, a `sample_table.txt` file is created with a line for each sample.
-Check that `sample_table.txt` contains sample identifiers corresponding to the ones you expect. 
-The number of lines should correspond to the number of samples used to make the concatenated assembly
-
-Now, Specify paths for databases, vamb directory, location of assembly and computational resouces in `mag_annotation/config.yaml`  
+- Now the `contigs.fna.gz` is splitted into individual assemblies i.e. `assembly/{sample}/{sample}.fna`
+- In addition, a `sample_table.txt` file is created with a line for each sample. Check that `sample_table.txt` contains sample identifiers corresponding to the ones you expect. The number of lines should correspond to the number of samples used to make the concatenated assembly (`contigs.fna.gz`).
+- Now, specify paths for databases, vamb directory, location of assembly and computational resources in `mag_annotation/config.yaml`.
 
 
-If everything good and set, you can run the snakemake pipeline.
-```
+If everything is good and set, you can run the snakemake pipeline.
+```bash
 # Local 
 snakemake -s mag_annotation/Snakefile --use-conda -j 1
 ```
 
-Dependent on the number of samples, it may be relevant to run the Snake-flow on a HPC server.
-```
+Dependent on the number of samples, it may be relevant to run the Snake-flow on a High performance computing (HPC) server.
+```bash
 # HPC - this won't work unless you specify a legit group on your HPC in `config.yaml`
-snakemake -s Snakefile --cluster qsub -j 32 --use-conda 
+snakemake -s Snakefile --cluster qsub -j 32 --use-conda
 ```
 
 ### Workflow content
@@ -99,8 +97,7 @@ python mag_annotation/scripts/parse_annotation_minimal.py -v vamb \
 -a sample_annotation \
 -o mag_viral_summaries \
 -f contigs.fna.gz \
---decontaminate 
-
+--decontaminate
 ```
   
 ```bash
@@ -113,8 +110,8 @@ The `VAMB.Viral_RF_predictions.bins.fna.gz` file provides the concatenated-assem
 Both files can be evaluated with dedicated Viral evaluation tools like [CheckV](https://bitbucket.org/berkeleylab/checkv/src/master/) to identify HQ assemblies.
 
 i.e. 
-```
-checkv end_to_end VAMB.Viral_RF_predictions.bins.fna.gz` checkv_vamb_bins  
+```bash
+checkv end_to_end VAMB.Viral_RF_predictions.bins.fna.gz checkv_vamb_bins  
 ```
 
 ## 2. Bacterial MAG and viral MAG association [In Progress]
