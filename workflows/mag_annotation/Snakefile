@@ -71,7 +71,7 @@ rule PRODIGAL:
 rule miComplete:
     input:
         proteins = "sample_annotation/{sample}/{sample}.predicted_proteins.faa",
-        DB = 'mag_annotation/dbs/Bact105.hmm'
+        DB = VOGDB
     output:
         hmmfile = "sample_annotation/{sample}/{sample}.hmmMiComplete105.tbl"
     params:
