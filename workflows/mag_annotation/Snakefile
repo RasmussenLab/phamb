@@ -1,8 +1,5 @@
 #!/usr/bin/env python
-from Bio import SeqIO
 import os
-import gzip
-
 configfile: 'mag_annotation/config.yaml'
 
 
@@ -11,14 +8,11 @@ MICOMPLETEDB = config.get("MICOMPLETEDB")
 VOGDB= config.get("VOGDB")
 DVFDIR = config.get("DVFDIR")
 
-
 PROJECT = config.get("cluster_project") # Who's paying for running this Flow on a Server-cluster?
 TMP_DIR = config.get("tmpdir")
 CONTIGSUFFIX = '.fna'
 THREADS = config.get("threads_ppn")
 ASSEMBLY = config.get("combined_assembly")
-VAMBDIR = config.get("vamb_directory")
-GTDBTKREF = config.get('GTDBK_reference')
 
 
 ###  Cluster Execution 
@@ -71,7 +65,7 @@ rule PRODIGAL:
 rule miComplete:
     input:
         proteins = "sample_annotation/{sample}/{sample}.predicted_proteins.faa",
-        DB = VOGDB
+        DB = MICOMPLETEDB
     output:
         hmmfile = "sample_annotation/{sample}/{sample}.hmmMiComplete105.tbl"
     params:
@@ -88,7 +82,7 @@ rule miComplete:
 rule VOG:
     input:
         proteins = "sample_annotation/{sample}/{sample}.predicted_proteins.faa",
-        DB = 'mag_annotation/dbs/vog_hmms/AllVOG.hmm'
+        DB = VOGDB
     output:
         hmmfile = "sample_annotation/{sample}/{sample}.hmmVOG.tbl"
     params:
