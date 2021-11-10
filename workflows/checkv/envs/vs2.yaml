@@ -1,5 +1,0 @@
-name: vs2
-channels:
-  - bioconda
-dependencies:
-  - virsorter=2

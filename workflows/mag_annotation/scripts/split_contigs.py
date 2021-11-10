@@ -1,6 +1,4 @@
-
 #!/bin/python
-from Bio import SeqIO
 import os
 import gzip
 import numpy as np
@@ -8,7 +6,8 @@ import argparse
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='')    
-    parser.add_argument('-c', help='Cluster file')
+    parser.add_argument('-c', help='Combined Assembly file')
+    parser.add_argument('-s', default= 'C', help='Split delimiter for Sample string in Contigname')
     args = parser.parse_args()
     return args
 
@@ -66,7 +65,7 @@ def byte_iterfasta(filehandle, comment=b'#'):
 
     yield FastaEntry(header, bytearray().join(buffer))
 
-def read_contigs(filehandle, minlength=2000):
+def read_contigs(filehandle,sample_delimiter, minlength=2000):
     """Parses a FASTA file open in binary reading mode.
     Input:
         filehandle: Filehandle open in binary mode of a FASTA file
@@ -75,7 +74,8 @@ def read_contigs(filehandle, minlength=2000):
         contignames: A list of contig headers
         lengths: A Numpy array of contig lengths
     """
-
+    
+    entries_by_sample = dict()
     if minlength < 4:
         raise ValueError('Minlength must be at least 4, not {}'.format(minlength))
 
@@ -88,13 +88,28 @@ def read_contigs(filehandle, minlength=2000):
         if len(entry) < minlength:
             continue
 
+        samplename = entry.header.split(sample_delimiter)[0]
+        if not samplename in entries_by_sample:
+            entries_by_sample[samplename] = []
+        entries_by_sample[samplename] += [entry]
         lengths.append(len(entry))
         contignames.append(entry.header)
 
     # Don't use reshape since it creates a new array object with shared memory
     lengths_arr = lengths.take()
 
-    return contignames, lengths_arr
+    return entries_by_sample,contignames, lengths_arr
+
+def write_contigs_to_samples(fastaentries,directory_out):
+    '''Write Fastaentries to seperate file by sample identifier '''
+    with open('sample_table.txt','w') as outfile:
+        for samplename, seqs in entries_by_sample.items():
+            outfile.write(samplename+'\n')
+            os.makedirs(os.path.join(directory_out,samplename),exist_ok=True)
+            with open(os.path.join(directory_out,samplename,samplename+'.fna'),'w') as out:
+                for seq in seqs:
+                    out.write('>'+seq.header+'\n'+seq.sequence.decode("utf-8")+'\n')
+
 
 
 
@@ -252,42 +267,12 @@ class PushArray:
     
 
 
-
-### Generic function to split Contigs file into sample-seperated files with contigs
-def splitcontigs_to_samples(fasta_file,directory_out):
-    
-    current_sample = None
-    outhandle = None
-    samples = set()
-    for record in SeqIO.parse(gzip.open(fasta_file, 'rt'), 'fasta'):
-            record.description = record.id
-            contig = record.id
-            sample = contig.split('C')[0]
-            samples.add(sample)
-
-            if sample != current_sample:
-
-                if not outhandle is None:
-                    outhandle.close() 
-                os.makedirs(os.path.join(directory_out,sample),exist_ok=True)
-                outhandle = open('{}/{}/{}.fna'.format(directory_out,sample,sample),  'w')
-                SeqIO.write(record, outhandle, 'fasta') 
-                current_sample = sample
-            else:
-                SeqIO.write(record, outhandle, 'fasta') 
-                current_sample = sample
-    
-    with open('sample_table.txt','w') as out:
-        for s in samples:
-            out.write(s+'\n')
-
-
 if __name__ == "__main__":
     args = parse_arguments()
-    splitcontigs_to_samples(args.c,'assembly')
 
     with Reader(args.c, 'rb') as fastafile:
-            contignames, lengths_arr = read_contigs(fastafile, minlength=2000)
+            entries_by_sample, contignames, lengths_arr = read_contigs(filehandle = fastafile, sample_delimiter=args.s, minlength=2000)
+    write_contigs_to_samples(fastaentries=entries_by_sample,directory_out='assembly')
 
     write_npz('contigs.npz',contignames)
     write_npz('contig_lengths.npz',lengths_arr)

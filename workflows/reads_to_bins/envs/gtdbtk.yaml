@@ -1,6 +1,0 @@
-name: gtdbtk
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - gtdbtk=1.3.0

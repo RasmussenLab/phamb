@@ -1,5 +1,0 @@
-name: fastani
-channels:
-  - bioconda
-dependencies:
-  - fastani

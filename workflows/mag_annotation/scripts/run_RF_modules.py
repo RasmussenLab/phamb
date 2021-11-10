@@ -386,10 +386,11 @@ class Viral_annotation:
                 annotation_tuple = parse_function(line)
 
                 if not annotation_tuple is None:
-                    contig = self.contigs[annotation_tuple[0]]
-                    contig_len = contig.__len__()
-                    annotation_tuple = annotation_tuple + (contig_len,)
-                    contig._add_annotation(filetype,annotation_tuple)
+                    if annotation_tuple[0] in self.contigs:
+                        contig = self.contigs[annotation_tuple[0]]
+                        contig_len = contig.__len__()
+                        annotation_tuple = annotation_tuple + (contig_len,)
+                        contig._add_annotation(filetype,annotation_tuple)
     
     def _summarise_genome_annotation(self):
         '''Annotation is summarised over contigs for each genome'''
@@ -449,10 +450,10 @@ class viral_annotation_tool_parsers:
     
     @staticmethod
     def _parse_hmm_row(line):
-        '''Both VOG and MiComplete HMM-searches - These are done on protein level'''
+        '''Both VOG and MiComplete HMM-searches and --tblout files '''
         items = line[:-1].split()
         protein_name, target, evalue, score= items[0], items[2],items[4], items[5]
-        contig_name = protein_name.split('_')[0]
+        contig_name = '_'.join(protein_name.split('_')[:-1]) # Remove protein number 
         score = round(float(score),2)
         evalue = float(evalue)
         annotation = (contig_name, target, score, evalue)
@@ -461,7 +462,7 @@ class viral_annotation_tool_parsers:
 
     @staticmethod
     def _parse_virusseker_row(line):
-        '''Will ONLY work with Virusseeker format: 3 columns with Contig-name\tprediction\tscore'''
+        '''Will ONLY work with Virusseeker format: 3 columns with '''
         contig_name, prediction, score = line[:-1].split()
         score =round(float(score),2)
         if prediction != 'Phage':
