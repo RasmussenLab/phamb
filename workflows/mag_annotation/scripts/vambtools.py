@@ -5,7 +5,6 @@ import gzip as _gzip
 import bz2 as _bz2
 import lzma as _lzma
 import numpy as _np
-from vamb._vambtools import _kmercounts, _overwrite_matrix
 import collections as _collections
 from hashlib import md5 as _md5
 

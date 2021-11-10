@@ -216,7 +216,7 @@ if __name__=='__main__':
     with _vambtools.Reader(args.fastafile, 'rb') as infile:
         fastadict = _vambtools.loadfasta(infile,compress=False)
 
-    reference = run_RF_modules.from_clusters(clusters = clusters, fastadict=fastadict, minimum_contig_len=2000)
+    reference = run_RF_modules.Reference.from_clusters(clusters = clusters, fastadict=fastadict, minimum_contig_len=2000)
     annotation_directory = args.annotationdir
     viral_annotation_files = {
                     'deepvirfinder':os.path.join(annotation_directory,'all.DVF.predictions.txt'),
@@ -224,7 +224,7 @@ if __name__=='__main__':
                     'micompletehmm':os.path.join(annotation_directory,'all.hmmMiComplete105.tbl'),
                     }
 
-    viral_annotation = run_RF_modules(annotation_files=viral_annotation_files,genomes=reference)
+    viral_annotation = run_RF_modules.Viral_annotation(annotation_files=viral_annotation_files,genomes=reference)
 
     rf_model_file = 'mag_annotation/dbs/RF_model.sav'
     RF_results = RF_model(rf_model_file,  genomes = viral_annotation.genomes)
