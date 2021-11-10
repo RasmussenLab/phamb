@@ -108,15 +108,4 @@ The RF model take few variables to make an accurate distinction.
 | 60.000       | 3      | 1.3   | 0.7               |
 
 
-
-
 - Bacterial MAGs and viral MAGs from the same metagenome can be efficiently associated using crispr-spacer approaches and sequence alignment (recommended cutoffs can be found in the article). From this, Host-viral abundance dynamics and bacterial pangenome modulation can be studied. Downstream viral proteome analysis should be based on the `viral regions` found in the `contamination.tsv` file produced by CheckV to prevent contaminating bacterial genes to influence the analysis. 
-
-
-### Workflow content
-The workflow does the following. 
-1. Splits the combined assembly into separate sample-specific ones 
-2. Predicts proteins de novo using Prodigal meta
-3. Searches proteins with VOGdb (PVOG) and miComplete bacterial hallmarks database 
-4. Scans each contig using DeepVirFinder
-5. Aggregates the above into Bin-wise annotation summaries used as input for Viral Decontamination Random Forest model
