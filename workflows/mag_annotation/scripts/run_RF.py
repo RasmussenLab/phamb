@@ -231,4 +231,4 @@ if __name__=='__main__':
 
     bins = {binname:clusters[binname] for binname in RF_results.RF_non_bacteria}
     write_concat_bins(os.path.join(args.directoryout,'vamb_bins'), bins, fastadict, compressed=False, maxbins=len(bins), minsize=args.min_bin_size)
-    write_phamb_tables(RF_results,'testdir')
+    write_phamb_tables(RF_results,args.directoryout)

@@ -78,7 +78,7 @@ mkdir annotations
 cat sample_annotation/*/*hmmMiComplete105.tbl > annotations/all.hmmMiComplete105.tbl
 cat sample_annotation/*/*hmmVOG.tbl > annotations/all.hmmVOG.tbl
 cat sample_annotation/*/*_dvf/*dvfpred.txt > annotations/all.DVF.predictions.txt
-python mag_annotation/scripts/run_RF.py contigs.fna.gz vamb/clusters.tsv sample_annotation resultdir
+python mag_annotation/scripts/run_RF.py contigs.fna.gz vamb/clusters.tsv annotations resultdir
 ```
   
 ```bash
