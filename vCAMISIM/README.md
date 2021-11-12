@@ -26,3 +26,13 @@ The script can easily be modified to only include predictions for some virus pre
 `benchmark` - Binning performance directory. Most insightful file is  the GenomeRecallStats.tsv file that summmarise the recovery of each binnde genome.
 `viral_benchmark_contig` -  Prediction performance on contig level only for the listed tools above
 `viral_benchmark_bin` - Prediction performance on genome level (including the RF model)
+
+
+## Where can I find the Viral predictors used here? 
+
+- Seeker (https://github.com/gussow/seeker)
+- Virsorter2 (https://github.com/jiarong/VirSorter2)
+- Virfinder (https://github.com/jessieren/VirFinder)
+- DeepVirfinder (https://github.com/jessieren/DeepVirFinder)
+- Viralverify (https://github.com/ablab/viralVerify)
+ 
