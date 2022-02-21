@@ -1,5 +1,5 @@
 # phamb
-A Phage from metagenomic bins (phamb) discovery approach used to isolate metagenome derived viromes and High-quality viral genomes.
+A Phage from metagenomic bins (phamb) discovery approach used to isolate metagenome derived viromes and High-quality viral genomes. phamb is now published in [Nature Communications](https://www.nature.com/articles/s41467-022-28581-5), have a look and let us know if you have any questions.
 
 The repository contains scripts and workflows used in our viral follow up study on the binning tool [VAMB](https://github.com/RasmussenLab/vamb) where we have benchmarked not only the quality and quantity of viral MAGs but also the viral overlap with metaviromes.
 
