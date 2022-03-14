@@ -14,7 +14,17 @@ In our analysis, [CheckV](https://bitbucket.org/berkeleylab/checkv/src/master/) 
 
 In order to run parallel annotations of contigs and the Random Forest model you need snakemake and `scikit-learn v. 0.21.3`. The snakemake workflows comes with conda-environments, thus dependencies and programmes are automatically installed. 
 ```bash
-conda install -n snakemake_env snakemake pygraphviz python=3.8 cython scikit-learn==0.21.3
+### New dependencies *Recommended*
+conda install -c conda-forge mamba
+mamba create -n phamb python=3.9
+conda activate phamb 
+mamba install -c conda-forge -c bioconda snakemake
+mamba install -c conda-forge -c bioconda scikit-learn=1.0.2
+mamba install -c conda-forge -c bioconda cython
+mamba install -c conda-forge -c bioconda pygraphviz
+
+### Old dependencies
+conda create -c conda-forge -c bioconda -n phamb python=3.6 cython scikit-learn=0.21.3 snakemake pygraphviz
 ```
 
 
@@ -57,7 +67,13 @@ snakemake -s mag_annotation/Snakefile --use-conda -j <threads>
 mkdir annotations
 cat sample_annotation/*/*hmmMiComplete105.tbl > annotations/all.hmmMiComplete105.tbl
 cat sample_annotation/*/*hmmVOG.tbl > annotations/all.hmmVOG.tbl
-cat sample_annotation/*/*_dvf/*dvfpred.txt > annotations/all.DVF.predictions.txt
+cat sample_annotation/*/*_dvf/*dvfpred.txt > annotations/DVF.predictions.txt
+
+# Clean the DVF files for multiple headers.
+head -n1 annotations/DVF.predictions.txt > DVF.header # get first header
+grep -v 'pvalue' annotations/DVF.predictions.txt > DVF.predictions # get predictions 
+cat DVF.header DVF.predictions > annotations/all.DVF.predictions.txt # combine
+
 ```
 
 Dependent on the number of samples, it may be relevant to run the Snake-flow on a High performance computing (HPC) server.

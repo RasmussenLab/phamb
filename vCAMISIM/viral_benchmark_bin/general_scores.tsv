@@ -45,5 +45,5 @@ viralverify	AUC	0.96	median_score
 viralverify	MCC	0.05	median_score
 viralverify	F1	0.14	median_score
 PHAMB	AUC	1.0	RF
-PHAMB	MCC	0.94	RF
+PHAMB	MCC	0.87	RF
 PHAMB	F1	1.0	RF

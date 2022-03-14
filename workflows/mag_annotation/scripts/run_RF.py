@@ -226,7 +226,7 @@ if __name__=='__main__':
 
     viral_annotation = run_RF_modules.Viral_annotation(annotation_files=viral_annotation_files,genomes=reference)
 
-    rf_model_file = 'mag_annotation/dbs/RF_model.sav'
+    rf_model_file = 'mag_annotation/dbs/RF_model.python39.sav'
     RF_results = RF_model(rf_model_file,  genomes = viral_annotation.genomes)
 
     bins = {binname:clusters[binname] for binname in RF_results.RF_non_bacteria}

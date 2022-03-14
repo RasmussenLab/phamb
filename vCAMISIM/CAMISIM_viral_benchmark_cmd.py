@@ -73,7 +73,7 @@ viral_annotation_files = {'virusseeker':os.path.join('virus_annotations','seeker
 viral_annotation = CAMISIM_viral_benchmark.Viral_annotation(annotation_files=viral_annotation_files,genomes=reference)
 
 ### Benchmarks
-RF_model = '../workflows/mag_annotation/dbs/RF_model.sav'
+RF_model = '../workflows/mag_annotation/dbs/RF_model.python39.sav'
 viral_benchmark = CAMISIM_viral_benchmark.Viral_benchmarking( RF_model=RF_model, contigs = viral_annotation.contigs, genomes = viral_annotation.genomes)
 
 CAMISIM_viral_benchmark.Viral_benchmarking._write_Viraltools_benchmark_results(results_directory='viral_benchmark_bin',performance=viral_benchmark.Viraltools_benchmark_bin,bin_level=True)
