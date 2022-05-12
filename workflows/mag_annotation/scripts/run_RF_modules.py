@@ -509,7 +509,7 @@ class viral_annotation_tool_parsers:
     @staticmethod
     def _parse_dvf_row(line):
         '''Will ONLY work with Deepvirfinder result format'''
-        contig_name, length, score, pvalue = line[:-1].split()
+        contig_name, length, score, pvalue = line[:-1].split("\t")
         score =round(float(score),2)
         pvalue = float(pvalue)
         annotation = (contig_name, score, pvalue)
