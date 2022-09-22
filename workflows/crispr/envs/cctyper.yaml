@@ -1,7 +1,0 @@
-name: cctyper
-channels:
-  - bioconda
-  - conda-forge
-  - russel88
-dependencies:
-  - cctyper

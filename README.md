@@ -23,8 +23,13 @@ mamba install -c conda-forge -c bioconda scikit-learn=1.0.2
 mamba install -c conda-forge -c bioconda cython
 mamba install -c conda-forge -c bioconda pygraphviz
 
-### Old dependencies
-conda create -c conda-forge -c bioconda -n phamb python=3.6 cython scikit-learn=0.21.3 snakemake pygraphviz
+### Quick install 
+pip install -e .
+
+### Test installation on random contigs
+mkdir -p testout 
+run_RF.py test/contigs.fna.gz test/clusters.tsv test testout
+
 ```
 
 
@@ -98,7 +103,7 @@ gzip contigs.fna
 ### Run the RF model
 Running the provided script, the virome bins are written to a fasta file and bin-annotations are summarised in `vambbins_aggregated_annotation.txt`. 
 ```bash
-python mag_annotation/scripts/run_RF.py contigs.fna.gz vamb/clusters.tsv annotations resultdir
+run_RF.py contigs.fna.gz vamb/clusters.tsv annotations resultdir
 
 ls resultsidr
 resultdir/vambbins_aggregated_annotation.txt
