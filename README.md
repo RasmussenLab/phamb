@@ -22,14 +22,19 @@ mamba install -c conda-forge -c bioconda snakemake
 mamba install -c conda-forge -c bioconda scikit-learn=1.0.2
 mamba install -c conda-forge -c bioconda cython
 mamba install -c conda-forge -c bioconda pygraphviz
+```
+
+
+```
+### Clone repository
+git clone the repository https://github.com/RasmussenLab/phamb.git
 
 ### Quick install 
 pip install -e .
 
-### Test installation on random bins
+### Test installation
 mkdir -p testout 
 run_RF.py test/contigs.fna.gz test/clusters.tsv test testout
-
 ```
 
 
