@@ -13,6 +13,7 @@ SETUP_METADATA = \
     "packages": ['phamb'],
     "package_data": {'phamb': ['dbs/RF_model.python39.sav']},
     "python_requires": ">=3.9",
+    "install_requires": ["scikit-learn>=1.0.2"],
     "classifiers":[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

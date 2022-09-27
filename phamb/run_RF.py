@@ -188,7 +188,8 @@ class RF_model():
 
         print('Loading Model and annotation table')
         trained_model = joblib.load(RF_model)
-
+        trained_model.n_estimators = 300
+        trained_model.max_features = 'sqrt'
         predicted_genome_labels = trained_model.predict(sparse_df)
         prediction_probabilities = trained_model.predict_proba(sparse_df)
         predicted_genome_labels = [label.lower() for label in list(predicted_genome_labels) ] 
