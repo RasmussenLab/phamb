@@ -26,7 +26,7 @@ mamba install -c conda-forge -c bioconda pygraphviz
 ### Quick install 
 pip install -e .
 
-### Test installation on random contigs
+### Test installation on random bins
 mkdir -p testout 
 run_RF.py test/contigs.fna.gz test/clusters.tsv test testout
 
@@ -56,7 +56,7 @@ mkdir -p projectdir
 cd projectdir 
 git clone the repository https://github.com/RasmussenLab/phamb.git
 cp -r phamb/workflows/mag_annotation .
-python mag_annotation/scripts/split_contigs.py -c contigs.fna.gz 
+python split_contigs.py -c contigs.fna.gz 
 ```
 
 - Now the `contigs.fna.gz` is splitted into individual assemblies i.e. `assembly/{sample}/{sample}.fna`
