@@ -22,9 +22,19 @@ mamba install -c conda-forge -c bioconda snakemake
 mamba install -c conda-forge -c bioconda scikit-learn=1.0.2
 mamba install -c conda-forge -c bioconda cython
 mamba install -c conda-forge -c bioconda pygraphviz
+```
 
-### Old dependencies
-conda create -c conda-forge -c bioconda -n phamb python=3.6 cython scikit-learn=0.21.3 snakemake pygraphviz
+
+```
+### Clone repository
+git clone the repository https://github.com/RasmussenLab/phamb.git
+
+### Quick install 
+pip install -e .
+
+### Test installation
+mkdir -p testout 
+run_RF.py test/contigs.fna.gz test/clusters.tsv test testout
 ```
 
 
@@ -51,7 +61,7 @@ mkdir -p projectdir
 cd projectdir 
 git clone the repository https://github.com/RasmussenLab/phamb.git
 cp -r phamb/workflows/mag_annotation .
-python mag_annotation/scripts/split_contigs.py -c contigs.fna.gz 
+python split_contigs.py -c contigs.fna.gz 
 ```
 
 - Now the `contigs.fna.gz` is splitted into individual assemblies i.e. `assembly/{sample}/{sample}.fna`
@@ -98,7 +108,7 @@ gzip contigs.fna
 ### Run the RF model
 Running the provided script, the virome bins are written to a fasta file and bin-annotations are summarised in `vambbins_aggregated_annotation.txt`. 
 ```bash
-python mag_annotation/scripts/run_RF.py contigs.fna.gz vamb/clusters.tsv annotations resultdir
+run_RF.py contigs.fna.gz vamb/clusters.tsv annotations resultdir
 
 ls resultsidr
 resultdir/vambbins_aggregated_annotation.txt
