@@ -10,26 +10,25 @@ We have applied this approach to 3 different datasets and recovered up to 6,077 
 
 In our analysis, [CheckV](https://bitbucket.org/berkeleylab/checkv/src/master/) has been important for assessing the actual gain of using viral MAGs relative to single-contig evaluation, a big kudos to Nayfach et al. for this great tool. 
 
-## [Prerequisites] - Snakemake 
+## [Prerequisites & Installation] 
 
-In order to run parallel annotations of contigs and the Random Forest model you need snakemake and `scikit-learn v. 1.0.2`. The snakemake workflows comes with conda-environments, thus dependencies and programmes are automatically installed. 
+In order to run parallel annotations of contigs and running the Random Forest model you need snakemake and `scikit-learn v. 1.0.2`. The snakemake workflows comes with conda-environments, thus dependencies and programmes are automatically installed. Phamb can now be installed via [bioconda](https://anaconda.org/bioconda/phamb). 
 ```bash
 ### New dependencies *Recommended*
 conda install -c conda-forge mamba
 mamba create -n phamb python=3.9
 conda activate phamb 
 mamba install -c conda-forge -c bioconda snakemake
-mamba install -c conda-forge -c bioconda scikit-learn=1.0.2
 mamba install -c conda-forge -c bioconda cython
 mamba install -c conda-forge -c bioconda pygraphviz
+mamba install -c conda-forge -c bioconda phamb
 ```
-
 
 ```
 ### Clone repository
 git clone the repository https://github.com/RasmussenLab/phamb.git
 
-### Quick install 
+### Alternative to bioconda - Quick install with pip
 pip install -e .
 
 ### Test installation
