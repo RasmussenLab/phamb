@@ -12,7 +12,7 @@ In our analysis, [CheckV](https://bitbucket.org/berkeleylab/checkv/src/master/) 
 
 ## [Prerequisites & Installation] 
 
-In order to run parallel annotations of contigs and running the Random Forest model you need snakemake and `scikit-learn v. 1.0.2`. The snakemake workflows comes with conda-environments, thus dependencies and programmes are automatically installed. Phamb can now be installed via [bioconda](https://anaconda.org/bioconda/phamb) thanks to @jayramr.  
+In order to run parallel annotations of contigs and running the Random Forest model you need snakemake and `scikit-learn v. 1.0.2`. The snakemake workflows comes with conda-environments, thus dependencies and programmes are automatically installed. Phamb can now be installed via [bioconda](https://anaconda.org/bioconda/phamb) thanks to @jayramr!
 ```bash
 ### New dependencies *Recommended*
 conda install -c conda-forge mamba
